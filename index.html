@@ -71,8 +71,9 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 #scopeO .dot{left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:#ff2fa8;box-shadow:0 0 6px #ff2fa8}
 #scopeO .m{width:8px;height:2px;margin-left:-4px;left:50%}
 #jump{right:max(200px,calc(env(safe-area-inset-right) + 188px));bottom:max(40px,calc(env(safe-area-inset-bottom) + 26px));width:96px;height:96px;font-size:14px}
-#ride{right:max(196px,calc(env(safe-area-inset-right) + 184px));bottom:max(156px,calc(env(safe-area-inset-bottom) + 142px));
-  width:auto;height:64px;border-radius:32px;padding:0 22px;font-size:15px;display:none;background:#ffe6a82a;border-color:var(--lamp)}
+#ride,#act{left:50%;translate:-50% 0;bottom:max(36px,calc(env(safe-area-inset-bottom) + 22px));
+  width:auto;height:66px;border-radius:33px;padding:0 26px;font-size:16px;display:none;background:#ffe6a82a;border-color:var(--lamp);white-space:nowrap}
+#act{bottom:max(114px,calc(env(safe-area-inset-bottom) + 100px));background:#9dff4a26;border-color:#9dff4a}
 #ammo{position:absolute;right:max(30px,calc(env(safe-area-inset-right) + 18px));bottom:max(196px,calc(env(safe-area-inset-bottom) + 182px));
   width:150px;text-align:center;font:22px Bungee,sans-serif;text-shadow:0 0 8px #000}
 #ammo small{display:block;font:600 14px Rajdhani,sans-serif;opacity:.8}
@@ -97,7 +98,7 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 #final{font:clamp(36px,6vw,64px) Bungee,sans-serif;color:var(--lamp);margin:8px 0}
 #rot{position:fixed;inset:0;background:#05070d;display:none;place-items:center;text-align:center;font:22px Bungee,sans-serif;color:var(--pink);z-index:9;padding:30px}
 @media (orientation:portrait) and (max-width:1100px){#rot{display:grid}}
-@media (max-height:560px){#fire{width:120px;height:120px}#ammo{bottom:150px;width:120px}#jump{right:160px;width:80px;height:80px}#ride{right:156px;bottom:128px}#joy{width:130px;height:130px}#knob{left:33px;top:33px}}
+@media (max-height:560px){#fire{width:120px;height:120px}#ammo{bottom:150px;width:120px}#jump{right:160px;width:80px;height:80px}#joy{width:130px;height:130px}#knob{left:33px;top:33px}}
 </style>
 </head>
 <body>
@@ -112,6 +113,7 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
   <div id="joy"><div id="joyLbl">Marcher · pousser à fond pour courir</div><div id="knob"></div></div>
   <div id="ammo"><span id="ammoN">1 | 10</span><small id="ammoS">roquettes</small><div id="rel"><div id="relf"></div></div></div>
   <div class="btn" id="ride">Monter</div>
+  <div class="btn pill" id="act">Action</div>
   <div class="btn" id="swap">Arme</div>
   <div class="btn" id="scope">Viser</div>
   <div class="btn" id="jump">Sauter</div>
@@ -202,7 +204,12 @@ function nearby(x,z,out){out.length=0;const cx=Math.floor(x/CELL)+100,cz=Math.fl
   for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++){const a=grid.get((cx+i)*1000+cz+j);if(a)for(const o of a)out.push(o)}return out}
 const tmpObs=[];
 const SPAWN={x:0,z:0},BIKE0={x:5,z:-6};
+/* zones réservées : maisons, fast-food, héliport, route */
+const HOUSES0=[[-42,-38,.6],[58,-48,-.9],[-74,28,2.2],[-24,92,3.0],[84,84,-2.4]];
+const REST={x:20,z:52},HELI={x:47,z:55},ROADZ=36;
+const RESV=HOUSES0.map(([x,z])=>({x,z,r:8})).concat([{x:REST.x,z:REST.z,r:15},{x:HELI.x,z:HELI.z,r:9}]);
 function freeSpot(x,z,r){if(Math.hypot(x-SPAWN.x,z-SPAWN.z)<9||Math.hypot(x-BIKE0.x,z-BIKE0.z)<6)return false;
+  for(const q of RESV)if(Math.hypot(x-q.x,z-q.z)<q.r+r)return false;if(Math.abs(z-ROADZ)<5+r)return false;
   for(const o of nearby(x,z,tmpObs))if(Math.hypot(o.x-x,o.z-z)<o.r+r)return false;return true}
 
 /* ---------- forêt ---------- */
@@ -434,6 +441,7 @@ function spawnBear(mul){
   b.fur.emissiveIntensity=.55;b.fur.opacity=1;b.fur.transparent=false;
   return b}
 const tv=new V3();
+const bc={};
 function bearTarget(){return P.onBike?bike.pos:P.pos}
 function updateBears(dt){
   const tgt=bearTarget(),fwd=camera.getWorldDirection(tv);
@@ -455,7 +463,7 @@ function updateBears(dt){
     b.pos.x+=Math.sin(b.yaw)*b.speed*dt;b.pos.z+=Math.cos(b.yaw)*b.speed*dt;
     for(const o of nearby(b.pos.x,b.pos.z,tmpObs)){const ox=b.pos.x-o.x,oz=b.pos.z-o.z,od=Math.hypot(ox,oz),m=o.r+.8*b.scale;if(od<m&&od>0){b.pos.x+=ox/od*(m-od);b.pos.z+=oz/od*(m-od);if(b.state==='wander')b.dirT=0}}
     for(const c of bears)if(c!==b&&c.alive&&!c.dead){const ox=b.pos.x-c.pos.x,oz=b.pos.z-c.pos.z,od=Math.hypot(ox,oz);if(od<1.8&&od>0){b.pos.x+=ox/od*(1.8-od)*.5;b.pos.z+=oz/od*(1.8-od)*.5}}
-    b.pos.y=H(b.pos.x,b.pos.z);
+    bc.hit=false;bc.ground=H(b.pos.x,b.pos.z);houseCol(b.pos.x,b.pos.z,.85*b.scale,b.pos.y,bc);b.pos.x=bc.x;b.pos.z=bc.z;b.pos.y=bc.ground;
     b.phase+=b.speed*dt*2.3;const sw=Math.sin(b.phase)*Math.min(.75,b.speed*.15);
     b.legs[0].rotation.x=sw;b.legs[3].rotation.x=sw;b.legs[1].rotation.x=-sw;b.legs[2].rotation.x=-sw;
     b.body.position.y=Math.abs(Math.cos(b.phase))*.08*Math.min(1,b.speed*.3);b.body.rotation.z=Math.sin(b.phase)*.04;
@@ -500,6 +508,7 @@ function updateRockets(dt){
   for(let i=rockets.length-1;i>=0;i--){const r=rockets[i];r.life-=dt;let boom=null,hitB=null;
     const steps=4;for(let s=0;s<steps&&!boom;s++){r.m.position.addScaledVector(r.v,dt/steps);const p=r.m.position;
       if(p.y<H(p.x,p.z)+.1)boom=p;
+      if(!boom&&houseBlock(p))boom=p;
       if(!boom)for(const o of nearby(p.x,p.z,tmpObs)){if(p.y<o.top&&Math.hypot(p.x-o.x,p.z-o.z)<o.r+.1){boom=p;break}}
       if(!boom)for(const b of bears)if(b.alive&&!b.dead){const by=b.pos.y+1.1*b.scale;if(Math.hypot(p.x-b.pos.x,p.y-by,p.z-b.pos.z)<1.25*b.scale){boom=p;hitB=b;break}}
     }
@@ -521,6 +530,7 @@ function explode(p,direct){
   const R=6.5;
   for(const b of bears)if(b.alive&&!b.dead){const d=Math.hypot(p.x-b.pos.x,p.y-(b.pos.y+1),p.z-b.pos.z);
     if(b===direct||d<R){const dmg=70*Math.sqrt(Math.max(0,1-d/R))+(b===direct?50:0);damageBear(b,dmg,'rocket')}}
+  for(const h of houses)if(h.alive&&Math.hypot(p.x-h.x,p.y-(h.fy+1.5),p.z-h.z)<6.5)destroyHouse(h,p);
   const me=P.onBike?bike.pos:P.pos,dm=Math.hypot(p.x-me.x,p.y-(me.y+1),p.z-me.z);
   if(dm<4.5)hurt(28*(1-dm/4.5),p);
   G.shake=Math.max(G.shake,clamp(1-dm/30,0,1)*.9);
@@ -574,7 +584,7 @@ const feetCol=(x,z,r,feet,res)=>{let ground=H(x,z);
   for(const o of nearby(x,z,tmpObs)){const dx=x-o.x,dz=z-o.z,d=Math.hypot(dx,dz),m=o.r+r;if(d>=m)continue;
     if(o.type==='rock'&&feet>=o.top-.5){if(d<o.r*.9)ground=Math.max(ground,o.top);continue}
     if(d>0){x+=dx/d*(m-d);z+=dz/d*(m-d)}res.hit=true}
-  res.x=x;res.z=z;res.ground=ground;return res};
+  res.x=x;res.z=z;res.ground=ground;return houseCol(x,z,r,feet,res)};
 const colRes={};
 function updatePlayer(dt){
   let mx=input.jx,mz=input.jy;const mag=Math.hypot(mx,mz);
@@ -689,8 +699,8 @@ let lookVel=0;
 function look(dx,dy){if(P.scoped){dx*=.22;dy*=.22}if(P.onBike){bike.lookYaw-=dx;bike.lookPitch=clamp(bike.lookPitch-dy,-1,.7);bike.lookT=1.5}else{P.yaw-=dx;P.pitch=clamp(P.pitch-dy,-1.35,1.35)}lookVel+=dx}
 function bindBtn(id,fn,alsoLook){const b=$(id);b.addEventListener('pointerdown',e=>{e.preventDefault();b.classList.add('down');fn();if(alsoLook)input.look.set(e.pointerId,{x:e.clientX,y:e.clientY})});
   const up=()=>b.classList.remove('down');b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',up)}
-bindBtn('fire',fire,true);bindBtn('swap',swapWeapon);bindBtn('scope',()=>setScope(!P.scoped));$('ammo').addEventListener('pointerdown',e=>{e.stopPropagation();sniperReload()});bindBtn('jump',jump);bindBtn('ride',()=>toggleBike&&toggleBike());
-addEventListener('keydown',e=>{input.keys[e.code]=1;if(e.code==='Space')jump();if(e.code==='KeyF'||e.code==='Enter')fire();if(e.code==='KeyE')toggleBike&&toggleBike();if(e.code==='KeyQ')swapWeapon();if(e.code==='KeyZ')setScope(!P.scoped);if(e.code==='KeyR')sniperReload()});
+bindBtn('fire',fire,true);bindBtn('swap',swapWeapon);bindBtn('scope',()=>setScope(!P.scoped));$('ammo').addEventListener('pointerdown',e=>{e.stopPropagation();sniperReload()});bindBtn('jump',jump);bindBtn('ride',()=>toggleBike&&toggleBike());bindBtn('act',()=>curAct&&curAct.fn());
+addEventListener('keydown',e=>{input.keys[e.code]=1;if(e.code==='Space')jump();if(e.code==='KeyF'||e.code==='Enter')fire();if(e.code==='KeyE')toggleBike&&toggleBike();if(e.code==='KeyG'&&curAct)curAct.fn();if(e.code==='KeyQ')swapWeapon();if(e.code==='KeyZ')setScope(!P.scoped);if(e.code==='KeyR')sniperReload()});
 addEventListener('keyup',e=>{input.keys[e.code]=0});
 function keyInput(){if(input.joyId!==null)return;const k=input.keys;const x=(k.KeyD||k.ArrowRight?1:0)-(k.KeyA||k.ArrowLeft?1:0),y=(k.KeyW||k.ArrowUp?1:0)-(k.KeyS||k.ArrowDown?1:0);
   input.jx=x;input.jy=y;input.run=!!(k.ShiftLeft||k.ShiftRight)}
@@ -781,10 +791,193 @@ function drawRadar(){const S=radar.width=radar.height=Math.round(124*Math.min(2,
   const fw=camera.getWorldDirection(pv),ang=Math.atan2(fw.x,-fw.z),cs=Math.cos(-ang),sn=Math.sin(-ang),me=camera.position;
   const dot=(x,z,col,r,sq)=>{let dx=(x-me.x)*sc,dz=(z-me.z)*sc;const rx=dx*cs-dz*sn,rz=dx*sn+dz*cs;const d=Math.hypot(rx,rz);
     let px=rx,pz=rz;if(d>R-6){px*=(R-6)/d;pz*=(R-6)/d}c.fillStyle=col;c.beginPath();if(sq)c.rect(R+px-r,R+pz-r,r*2,r*2);else c.arc(R+px,R+pz,r,0,7);c.fill()};
+  for(const h of houses)dot(h.x,h.z,h.alive?'#ffb347':'#6b4a2e',S/38,1);
   for(const k of crates)if(k.on)dot(k.g.position.x,k.g.position.z,'#9dff4a',S/50,1);
   if(!P.onBike)dot(bike.pos.x,bike.pos.z,'#ffffff',S/40,1);
   for(const b of bears)if(b.alive&&!b.dead)dot(b.pos.x,b.pos.z,'#ff2fa8',S/34);
   c.fillStyle='#ffe6a8';c.beginPath();c.moveTo(R,R-S/18);c.lineTo(R-S/30,R+S/30);c.lineTo(R+S/30,R+S/30);c.fill()}
+
+/* ---------- maisons ---------- */
+const UBOX=new T.BoxGeometry(1,1,1);
+const houses=[],people=[],debris=[];
+const matCache={};
+function colMat(c,emi){const k=c+(emi?'e':'');return matCache[k]||(matCache[k]=emi?new T.MeshBasicMaterial({color:c}):new T.MeshPhongMaterial({color:c,flatShading:true,shininess:4}))}
+function prismGeo(w,b,h){const g=new T.BufferGeometry(),x=w/2,z=b/2;
+  const v=[-x,0,-z,-x,0,z,-x,h,0, x,0,z,x,0,-z,x,h,0, -x,0,z,x,0,z,x,h,0,-x,0,z,x,h,0,-x,h,0, x,0,-z,-x,0,-z,-x,h,0,x,0,-z,-x,h,0,x,h,0, -x,0,-z,x,0,-z,x,0,z,-x,0,-z,x,0,z,-x,0,z];
+  g.setAttribute('position',new T.Float32BufferAttribute(v,3));g.computeVertexNormals();return g}
+/* fusionne des pièces {g,c,m} en un seul mesh à couleurs de sommets (1 draw call par maison) */
+function mergePieces(list,basic){let n=0;const parts=list.map(p=>{let g=p.g.index?p.g.toNonIndexed():p.g.clone();g.applyMatrix4(p.m);n+=g.attributes.position.count;return[g,p.c]});
+  const pos=new Float32Array(n*3),nor=new Float32Array(n*3),col=new Float32Array(n*3),c=new T.Color();let o=0;
+  for(const[g,hex]of parts){const a=g.attributes.position.array,b=g.attributes.normal.array;pos.set(a,o*3);nor.set(b,o*3);c.setHex(hex);
+    for(let i=0;i<a.length/3;i++)col.set([c.r,c.g,c.b],(o+i)*3);o+=a.length/3}
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(pos,3));g.setAttribute('normal',new T.BufferAttribute(nor,3));g.setAttribute('color',new T.BufferAttribute(col,3));
+  return new T.Mesh(g,basic?new T.MeshBasicMaterial({vertexColors:true}):new T.MeshPhongMaterial({vertexColors:true,flatShading:true,shininess:4,emissive:0x120a04}))}
+const patchTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d'),g=x.createRadialGradient(32,32,2,32,32,32);
+  g.addColorStop(0,'rgba(255,190,110,.55)');g.addColorStop(1,'rgba(255,160,80,0)');x.fillStyle=g;x.fillRect(0,0,64,64);return new T.CanvasTexture(c)})();
+const patchMat=new T.MeshBasicMaterial({map:patchTex,transparent:true,depthWrite:false,blending:T.AdditiveBlending});
+const homeLight=new T.PointLight(0xffb060,0,11,1.4);scene.add(homeLight);
+const SHIRTS=[0x3a6ea5,0xc0392b,0x27ae60,0xe1b12c,0x8e44ad,0xd35400,0x16a085],PANTS=[0x2c3e50,0x4b3621,0x1e272e,0x5d6d7e],HAIR=[0x2b1b10,0x6b4423,0xd9b26f,0x999999,0x111111],SKIN=[0xf1c8a5,0xc68642,0x8d5524,0xe0ac69];
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function makePerson(){const g=new T.Group(),body=new T.Group();g.add(body);
+  const m=c=>colMat(c),shirt=pick(SHIRTS),skin=pick(SKIN);
+  const box=(w,h,d,c,x,y,z,p=body)=>{const o=new T.Mesh(UBOX,m(c));o.scale.set(w,h,d);o.position.set(x,y,z);p.add(o);return o};
+  const legs=[-.11,.11].map(x=>{const l=new T.Group();l.position.set(x,.9,0);box(.18,.88,.2,pick(PANTS),0,-.44,0,l);body.add(l);return l});
+  box(.5,.62,.28,shirt,0,1.22,0);box(.3,.32,.3,skin,0,1.72,0);box(.32,.12,.33,pick(HAIR),0,1.9,-.01);
+  box(.06,.05,.02,0x111111,-.07,1.75,.155);box(.06,.05,.02,0x111111,.07,1.75,.155);
+  const arms=[-.33,.33].map(x=>{const a=new T.Group();a.position.set(x,1.48,0);box(.14,.62,.16,shirt,0,-.3,0,a);box(.12,.12,.12,skin,0,-.66,0,a);body.add(a);return a});
+  scene.add(g);return{g,body,legs,arms,pos:new V3(),yaw:0,state:'idle',t:0,ph:0,speed:0,lx:0,lz:0,tx:0,tz:0,house:null,screamT:0,alive:true,fade:1}}
+const WAY=[[-1,-.6],[.8,.8],[1.2,1.9],[-2.8,2.1],[.3,-1.3],[-.3,2.0],[-1.2,-1.6]],HIDE=[[1.55,-2.5],[-2.35,-1.8],[3.3,.2]];
+function buildHouse(hx,hz,rot){
+  let fy=-99;for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++)fy=Math.max(fy,H(hx+i*4.5,hz+j*3.5));fy+=.25;
+  const h={x:hx,z:hz,rot,c:Math.cos(rot),s:Math.sin(rot),fy,alive:true,door:false,doorA:0,pieces:[],emis:[],people:[],robbed:false,fireT:0,smokeT:0,bearD:99,calmT:0};
+  const g=new T.Group();g.position.set(hx,fy,hz);g.rotation.y=rot;scene.add(g);h.g=g;
+  const M=new T.Matrix4(),Q=new T.Quaternion(),E=new T.Euler();
+  const P=(geo,c,x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0,deb=true,emi=false)=>{const m=new T.Matrix4().compose(new V3(x,y,z),Q.setFromEuler(E.set(rx,ry,0)),new V3(sx,sy,sz));(emi?h.emis:h.pieces).push({g:geo,c,m,deb})};
+  const B=(w,hh,d,c,x,y,z,o={})=>P(UBOX,c,x,y,z,w,hh,d,o.rx||0,o.ry||0,o.deb!==false,o.emi);
+  B(8.4,3,6.4,0x46474d,0,-1.52,0,{deb:false});B(7.8,.12,5.8,0x8a6440,0,.06,0,{deb:false});B(1.8,.3,1.1,0x5e3e24,1,-.12,3.55,{deb:false});
+  const wc=[0x6e4a2c,0x5e3e24];
+  for(let r=0;r<2;r++){const y=.7+r*1.4,c=wc[r];
+    for(let i=0;i<6;i++)B(8/6,1.4,.22,c,-4+8/6*(i+.5),y,-2.89);
+    for(const sx of[-3.89,3.89])for(let i=0;i<4;i++)B(.22,1.4,5.56/4,c,sx,y,-2.78+5.56/4*(i+.5));
+    for(let i=0;i<3;i++)B(4.4/3,1.4,.22,c,-4+4.4/3*(i+.5),y,2.89);
+    for(let i=0;i<2;i++)B(1.2,1.4,.22,c,1.6+1.2*(i+.5),y,2.89)}
+  B(1.2,.7,.22,0x5e3e24,1,2.45,2.89);
+  for(const[x,z]of[[-3.95,-2.95],[3.95,-2.95],[-3.95,2.95],[3.95,2.95]])B(.34,2.9,.34,0x3a2616,x,1.45,z);
+  P(prismGeo(8.2,6.2,1.7),0x5e3e24,0,2.8,0);
+  const ra=Math.atan2(1.7,3.1);
+  for(const sd of[-1,1])for(let i=0;i<3;i++)B(2.95,.16,3.75,i%2?0x5a2a22:0x4e241d,-2.95+2.95*i,3.72,sd*1.56,{rx:sd*ra});
+  B(.6,1.8,.6,0x55565c,-2.4,3.9,-1.3);
+  /* fenêtres éclairées (émissives) */
+  const win=(x,y,z,ry)=>{B(1,.9,.27,0xffc070,x,y,z,{ry,emi:true});B(1.06,.07,.33,0x2a1a10,x,y,z,{ry});B(.07,.96,.33,0x2a1a10,x,y,z,{ry})};
+  win(-2.2,1.55,2.89,0);win(-1.6,1.55,-2.89,0);win(1.9,1.55,-2.89,0);win(-3.89,1.55,.2,Math.PI/2);win(3.89,1.55,-.8,Math.PI/2);
+  /* intérieur */
+  const tc=0x9a6a3c;B(1.5,.08,.9,tc,-1.9,.78,.6);for(const[x,z]of[[-.65,-.38],[.65,-.38],[-.65,.38],[.65,.38]])B(.08,.72,.08,tc,-1.9+x,.4,.6+z);
+  for(const sx of[-1,1]){B(.45,.06,.45,0x7a4a2a,-1.9+sx*1.05,.46,.6);B(.06,.5,.45,0x7a4a2a,-1.9+sx*1.28,.74,.6);for(const lz of[-.18,.18])B(.05,.42,.05,0x7a4a2a,-1.9+sx*1.05,.22,.6+lz)}
+  B(1.3,.36,2.2,0x5a3a22,2.6,.24,-1.65);B(1.2,.18,2.05,0xe8e0d0,2.6,.5,-1.65);B(1.22,.07,1.3,pick([0x2f6fbf,0xb03a48,0x3f8f4f,0xd9a520]),2.6,.62,-1.2);B(.8,.12,.35,0xf4f0e8,2.6,.65,-2.45);
+  B(1,2,.6,0x6a4428,-3.3,1.06,-2.4);B(.04,1.8,.02,0x2a1a10,-3.3,1.06,-2.09);
+  B(1.4,1.8,.35,0x6a4428,0,.96,-2.6);for(let i=0;i<7;i++)B(.12,.32,.25,pick([0xb03a48,0x2f6fbf,0xd9a520,0x3f8f4f,0xeeeeee]),-.5+i*.16,1.4,-2.55);
+  B(2.2,.02,1.6,0x8a2a2a,-.4,.13,.6,{deb:false});
+  B(.2,.24,.2,0xffd080,-1.9,.96,.6,{emi:true});B(.3,.06,.3,0xfff0c0,0,2.74,0,{emi:true});
+  B(.9,.5,.5,0x46474d,3.3,.3,1.8);B(.6,.25,.3,0xff7a30,3.3,.32,1.6,{emi:true});
+  h.mesh=mergePieces(h.pieces);g.add(h.mesh);h.emesh=mergePieces(h.emis,true);g.add(h.emesh);
+  /* porte */
+  h.doorPivot=new T.Group();h.doorPivot.position.set(.4,0,2.92);g.add(h.doorPivot);
+  const dm=new T.Mesh(UBOX,colMat(0x4a2c18));dm.scale.set(1.2,2.1,.09);dm.position.set(.6,1.12,0);h.doorPivot.add(dm);
+  const kn=new T.Mesh(UBOX,colMat(0xd4af37));kn.scale.set(.08,.08,.14);kn.position.set(1.05,1.1,0);h.doorPivot.add(kn);
+  /* faux halos de lumière au sol devant les fenêtres */
+  for(const[x,z,w,d]of[[-2.2,4.3,3,2.4],[-5.2,.2,2.4,3],[5.2,-.8,2.4,3],[-1.6,-4.3,3,2.2],[1.9,-4.3,3,2.2]]){
+    const wx=hx+x*h.c+z*h.s,wz=hz-x*h.s+z*h.c,p=new T.Mesh(new T.PlaneGeometry(w,d),patchMat);p.rotation.x=-Math.PI/2;p.position.set(x,H(wx,wz)-fy+.08,z);g.add(p)}
+  h.walls=[[-4,4,-3,-2.78],[-4,-3.78,-3,3],[3.78,4,-3,3],[-4,.4,2.78,3],[1.6,4,2.78,3],[-3.25,-.55,.15,1.05],[1.9,3.3,-2.8,-.5],[-3.85,-2.75,-2.75,-2.05],[-.75,.75,-2.8,-2.4],[2.8,3.8,1.5,2.1]];
+  h.doorRect=[.4,1.6,2.78,3.02];
+  const n=Math.random()<.5?1:2;for(let i=0;i<n;i++){const p=makePerson();p.house=h;h.people.push(p);people.push(p)}
+  houses.push(h);return h}
+function toL(h,x,z,o){const dx=x-h.x,dz=z-h.z;o.x=dx*h.c-dz*h.s;o.z=dx*h.s+dz*h.c;return o}
+function toW(h,lx,lz,o){o.x=h.x+lx*h.c+lz*h.s;o.z=h.z-lx*h.s+lz*h.c;return o}
+const LL={x:0,z:0},WW={x:0,z:0};
+function houseRects(h){return h.door?h.walls:h.walls.concat([h.doorRect])}
+function houseCol(x,z,r,feet,res){
+  for(const h of houses){if(!h.alive)continue;const dc=Math.hypot(x-h.x,z-h.z);if(dc>6+r)continue;
+    toL(h,x,z,LL);let lx=LL.x,lz=LL.z;
+    if(Math.abs(lx)<4.2&&Math.abs(lz)<3.2)res.ground=Math.max(res.ground,h.fy);
+    else if(lx>.3&&lx<1.7&&lz>3&&lz<4.1)res.ground=Math.max(res.ground,h.fy-.05);
+    if(feet>h.fy+2.9)continue;
+    for(const w of houseRects(h)){const cx=clamp(lx,w[0],w[1]),cz=clamp(lz,w[2],w[3]);let dx=lx-cx,dz=lz-cz,d=Math.hypot(dx,dz);if(d>=r)continue;
+      if(d>1e-4){lx=cx+dx/d*r;lz=cz+dz/d*r}else{const a=[lx-w[0],w[1]-lx,lz-w[2],w[3]-lz],m=Math.min(...a),k=a.indexOf(m);if(k===0)lx=w[0]-r;else if(k===1)lx=w[1]+r;else if(k===2)lz=w[2]-r;else lz=w[3]+r}
+      res.hit=true}
+    toW(h,lx,lz,WW);x=WW.x;z=WW.z}
+  res.x=x;res.z=z;return res}
+function insideHouse(x,z){for(const h of houses){if(!h.alive)continue;toL(h,x,z,LL);if(Math.abs(LL.x)<3.8&&Math.abs(LL.z)<2.8)return h}return null}
+function houseBlock(p){for(const h of houses){if(!h.alive||Math.hypot(p.x-h.x,p.z-h.z)>6)continue;toL(h,p.x,p.z,LL);const y=p.y-h.fy;
+  if(y>-.3&&y<2.8){for(const w of houseRects(h))if(LL.x>w[0]-.12&&LL.x<w[1]+.12&&LL.z>w[2]-.12&&LL.z<w[3]+.12&&w!==h.walls[5]&&w!==h.walls[6])return h}
+  else if(y>=2.8&&Math.abs(LL.x)<4.3&&Math.abs(LL.z)<3.4&&y<2.8+1.85*(1-Math.abs(LL.z)/3.4))return h}return null}
+/* le sniper touche les murs et le toit */
+rayHooks.push((o,d,maxT)=>{let best=null;
+  for(const h of houses){if(!h.alive)continue;const ox=o.x-h.x,oz=o.z-h.z,lox=ox*h.c-oz*h.s,loz=ox*h.s+oz*h.c,ldx=d.x*h.c-d.z*h.s,ldz=d.x*h.s+d.z*h.c,loy=o.y-h.fy;
+    const boxes=houseRects(h).slice(0,5).map(w=>[w[0],w[1],0,2.8,w[2],w[3]]);if(!h.door)boxes.push([.4,1.6,0,2.1,2.85,2.98]);boxes.push([-4.2,4.2,2.8,4.4,-3.2,3.2]);
+    for(const b of boxes){let t0=0,t1=maxT;const O=[lox,loy,loz],D=[ldx,d.y,ldz];let ok=true;
+      for(let k=0;k<3;k++){if(Math.abs(D[k])<1e-6){if(O[k]<b[k*2]||O[k]>b[k*2+1]){ok=false;break}continue}
+        let a=(b[k*2]-O[k])/D[k],c=(b[k*2+1]-O[k])/D[k];if(a>c)[a,c]=[c,a];t0=Math.max(t0,a);t1=Math.min(t1,c);if(t0>t1){ok=false;break}}
+      if(ok&&t0>.3&&(!best||t0<best.t))best={t:t0,hit:p=>{for(let i=0;i<10;i++)smoke.emit(p.x,p.y,p.z,rnd(-1,1),rnd(0,1.5),rnd(-1,1),rnd(.5,1),.25,.8,.45,.32,.2,.8,4)}}}}
+  return best});
+function destroyHouse(h,from){if(!h.alive)return;h.alive=false;h.fireT=30;
+  h.mesh.visible=h.emesh.visible=false;h.doorPivot.visible=false;
+  const keep=h.pieces.filter(p=>!p.deb);const ruin=mergePieces(keep);h.g.add(ruin);h.ruin=ruin;
+  const all=h.pieces.filter(p=>p.deb).concat(h.emis.map(p=>Object.assign({},p,{c:0x3a2a20})));
+  const wm=h.g.matrixWorld,m=new T.Matrix4(),pp=new V3(),q=new T.Quaternion(),sc=new V3();h.g.updateMatrixWorld();
+  for(const p of all){m.multiplyMatrices(wm,p.m);m.decompose(pp,q,sc);
+    const mesh=new T.Mesh(p.g,colMat(p.c));mesh.position.copy(pp);mesh.quaternion.copy(q);mesh.scale.copy(sc);scene.add(mesh);
+    const dx=pp.x-from.x,dz=pp.z-from.z,dy=pp.y-from.y,dl=Math.hypot(dx,dy,dz)||1,f=rnd(5,13)/(1+dl*.15);
+    debris.push({m:mesh,v:new V3(dx/dl*f+rnd(-1,1),Math.abs(dy/dl)*f*.6+rnd(3,9),dz/dl*f+rnd(-1,1)),w:new V3(rnd(-5,5),rnd(-5,5),rnd(-5,5)),t:0,r:Math.min(sc.x,sc.y,sc.z)*.5+.05,still:false,h})}
+  for(let i=0;i<60;i++){const a=Math.random()*6.283,r=rnd(0,4);smoke.emit(h.x+Math.cos(a)*r,h.fy+rnd(0,3),h.z+Math.sin(a)*r,Math.cos(a)*rnd(1,4),rnd(.5,3),Math.sin(a)*rnd(1,4),rnd(2.5,5),rnd(2,3.5),rnd(6,10),.42,.36,.3,.7,-.3)}
+  for(const p of h.people)if(p.alive){p.state='flee';p.t=0;p.house=null;scream(p,true)}
+  popBanner('Maison détruite',1.4,h.people.length?'Les habitants s\'enfuient':'');G.shake=Math.max(G.shake,.6)}
+function updateDebris(dt){
+  for(const d of debris){if(d.still)continue;d.t+=dt;d.v.y-=20*dt;d.m.position.addScaledVector(d.v,dt);d.m.rotation.x+=d.w.x*dt;d.m.rotation.y+=d.w.y*dt;d.m.rotation.z+=d.w.z*dt;
+    const p=d.m.position,inH=Math.abs(p.x-d.h.x)<4&&Math.abs(p.z-d.h.z)<4,gy=(inH?Math.max(H(p.x,p.z),d.h.fy):H(p.x,p.z))+d.r;
+    if(p.y<gy){p.y=gy;d.v.y=-d.v.y*.3;d.v.x*=.55;d.v.z*=.55;d.w.multiplyScalar(.5);if(d.v.lengthSq()<.6||d.t>7){d.still=true;d.m.matrixAutoUpdate=false;d.m.updateMatrix()}}}
+  for(const h of houses){if(!h.alive&&!h.merged){const ds=debris.filter(d=>d.h===h);if(ds.length&&ds.every(d=>d.still)){
+      const mm=mergePieces(ds.map(d=>({g:d.m.geometry,c:d.m.material.color.getHex(),m:d.m.matrix})));scene.add(mm);h.merged=mm;
+      for(const d of ds){scene.remove(d.m);debris.splice(debris.indexOf(d),1)}}}
+    if(h.alive){if(Math.hypot(h.x-camera.position.x,h.z-camera.position.z)<45){h.smokeT-=dt;if(h.smokeT<=0){h.smokeT=.35;
+      toW(h,-2.4,-1.3,WW);smoke.emit(WW.x,h.fy+4.9,WW.z,rnd(-.2,.2)+.3,rnd(.6,1),rnd(-.2,.2),rnd(3,5),.4,2.2,.35,.35,.38,.35,-.2)}}
+      const dA=h.door?-1.75:0;h.doorA+=(dA-h.doorA)*Math.min(1,dt*7);h.doorPivot.rotation.y=h.doorA;continue}
+    if(h.fireT>0){h.fireT-=dt;const k=Math.min(1,h.fireT/10);if(Math.hypot(h.x-camera.position.x,h.z-camera.position.z)<70)for(let i=0;i<3;i++)if(Math.random()<k){
+      const x=h.x+rnd(-3.5,3.5),z=h.z+rnd(-3,3);glow.emit(x,h.fy+rnd(0,.8),z,rnd(-.3,.3),rnd(1.5,3.5),rnd(-.3,.3),rnd(.4,.9),rnd(.8,1.6),.2,1,rnd(.35,.6),.1,1,-2);
+      if(Math.random()<.3)smoke.emit(x,h.fy+1.5,z,rnd(-.3,.3),rnd(1.5,2.5),rnd(-.3,.3),rnd(2,4),1,4,.12,.1,.1,.6,-.3)}}}}
+/* éclairage chaud partagé : une seule lumière qui suit la maison la plus proche */
+function updateHomeLight(){let best=null,bd=28;for(const h of houses){const d=Math.hypot(h.x-camera.position.x,h.z-camera.position.z);if(d<bd&&(h.alive||h.fireT>0)){bd=d;best=h}}
+  if(!best){homeLight.intensity=0;return}
+  if(best.alive){toW(best,-.5,0,WW);homeLight.position.set(WW.x,best.fy+2.2,WW.z);homeLight.intensity=1.5*clamp((28-bd)/8,0,1);homeLight.distance=11}
+  else{homeLight.position.set(best.x,best.fy+1.5,best.z);homeLight.intensity=(1.6+Math.random()*.8)*Math.min(1,best.fireT/8);homeLight.distance=16}}
+/* ---------- habitants ---------- */
+function scream(p,big){if(!AU.ctx||p.screamT>0)return;p.screamT=rnd(2.5,4);const d=Math.hypot(p.pos.x-camera.position.x,p.pos.z-camera.position.z);if(d>40)return;
+  const c=AU.ctx,t=c.currentTime,o=out(pan(p.pos),(big?.5:.3)/(1+d*.12)),s=c.createOscillator(),f=c.createBiquadFilter(),g=c.createGain(),v=c.createOscillator(),vg=c.createGain();
+  const f0=rnd(380,560);s.type='sawtooth';s.frequency.setValueAtTime(f0,t);s.frequency.linearRampToValueAtTime(f0*1.35,t+.15);s.frequency.linearRampToValueAtTime(f0*.9,t+.7);
+  v.frequency.value=rnd(6,9);vg.gain.value=f0*.04;v.connect(vg);vg.connect(s.frequency);f.type='bandpass';f.frequency.value=1100;f.Q.value=2;
+  g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(1,t+.05);g.gain.exponentialRampToValueAtTime(.001,t+.75);s.connect(f);f.connect(g);g.connect(o);s.start(t);v.start(t);s.stop(t+.8);v.stop(t+.8)}
+function placePeople(){for(const p of people){const h=p.house||houses.find(h=>h.people.includes(p));p.house=h;p.alive=true;p.fade=1;p.g.visible=true;p.g.scale.setScalar(1);
+  const w=pick(WAY);p.lx=w[0];p.lz=w[1];p.tx=p.lx;p.tz=p.lz;p.state='idle';p.t=rnd(0,3);p.robbed=false;p.speed=0;p.fx=undefined}}
+function walkTo(p,dt,spd){const dx=p.tx-p.lx,dz=p.tz-p.lz,d=Math.hypot(dx,dz);if(d<.15){p.speed=0;return true}
+  const st=Math.min(d,spd*dt);p.lx+=dx/d*st;p.lz+=dz/d*st;p.speed=spd;p.lyaw=Math.atan2(dx,dz);return false}
+function updatePeople(dt){
+  for(const h of houses){h.bearD=99;if(!h.alive)continue;for(const b of bears)if(b.alive&&!b.dead)h.bearD=Math.min(h.bearD,Math.hypot(b.pos.x-h.x,b.pos.z-h.z))}
+  for(const p of people){if(!p.alive)continue;p.screamT-=dt;p.t-=dt;let arms=0,crouch=0,shake=0;const h=p.house;
+    if(p.state==='flee'||p.state==='gone'){
+      if(p.state==='flee'){let ax=0,az=0;for(const b of bears)if(b.alive&&!b.dead){const dx=p.pos.x-b.pos.x,dz=p.pos.z-b.pos.z,d=Math.hypot(dx,dz)||1;if(d<30){ax+=dx/d/d;az+=dz/d/d}}
+if(p.fx===undefined||Math.random()<dt*.5){const a=Math.atan2(p.pos.x-(p.fromX||p.pos.x+rnd(-1,1)),p.pos.z-(p.fromZ||p.pos.z+rnd(-1,1)));p.fx=Math.sin(a);p.fz=Math.cos(a)}
+        let vx=p.fx+ax*20,vz=p.fz+az*20;const l=Math.hypot(vx,vz)||1;vx/=l;vz/=l;p.yaw=Math.atan2(vx,vz);p.speed=5.2;
+        p.pos.x+=vx*5.2*dt;p.pos.z+=vz*5.2*dt;colRes.hit=false;feetCol(p.pos.x,p.pos.z,.3,p.pos.y,colRes);if(colRes.hit){p.fx=Math.sin(p.yaw+1.2);p.fz=Math.cos(p.yaw+1.2)}
+        p.pos.x=clamp(colRes.x,-WORLD,WORLD);p.pos.z=clamp(colRes.z,-WORLD,WORLD);p.pos.y=colRes.ground;arms=1;
+        if(p.t<-14){p.state='gone'}}
+      else{p.fade-=dt*.7;p.g.scale.setScalar(Math.max(.01,p.fade));if(p.fade<=0){p.alive=false;p.g.visible=false;continue}}
+    }else{
+      const danger=h.bearD;
+      if(p.state==='hands'){p.speed=0;arms=2;if(p.t<0)p.state='idle'}
+      else if(danger<9){if(p.state!=='panic'){p.state='panic';scream(p,true)}const ok=walkTo(p,dt,3.2);if(ok||p.t<0){const w=pick(WAY);p.tx=w[0];p.tz=w[1];p.t=rnd(.6,1.4)}arms=1;if(Math.random()<dt*.6)scream(p)}
+      else if(danger<26){if(p.state!=='hide'){p.state='hide';const w=HIDE[people.indexOf(p)%HIDE.length];p.tx=w[0];p.tz=w[1];if(Math.random()<.5)scream(p)}
+        if(walkTo(p,dt,2.6)){crouch=1;shake=1;p.lyaw=Math.atan2(-p.lx,-p.lz)}}
+      else{if(p.state!=='idle'){p.state='idle';p.t=rnd(1,3)}if(walkTo(p,dt,1.1)&&p.t<0){const w=pick(WAY);p.tx=w[0];p.tz=w[1];p.t=rnd(2,6)}}
+      toW(h,p.lx,p.lz,WW);p.pos.set(WW.x,h.fy+.12,WW.z);p.yaw=(p.lyaw||0)+h.rot;p.fromX=h.x;p.fromZ=h.z;
+    }
+    p.ph+=p.speed*dt*2.6;const sw=Math.sin(p.ph)*Math.min(.8,p.speed*.25);
+    p.legs[0].rotation.x=sw*(1-crouch)-crouch*1.3;p.legs[1].rotation.x=-sw*(1-crouch)-crouch*1.3;
+    const wave=Math.sin(G.time*14+p.ph)*.35;
+    p.arms[0].rotation.x=arms===2?-2.9:arms?-2.6+wave:-sw;p.arms[1].rotation.x=arms===2?-2.9:arms?-2.6-wave:sw;
+    p.arms[0].rotation.z=arms?-.25:0;p.arms[1].rotation.z=arms?.25:0;
+    p.body.position.y=-crouch*.42+Math.abs(Math.cos(p.ph))*.04*Math.min(1,p.speed);p.body.position.z=crouch*.15;p.body.rotation.x=crouch*.35;
+    p.body.rotation.z=shake?Math.sin(G.time*40)*.04:0;
+    p.g.position.copy(p.pos);p.g.rotation.y=p.yaw}}
+function resetHouses(){for(const d of debris)scene.remove(d.m);debris.length=0;
+  for(const h of houses){h.alive=true;h.fireT=0;h.door=false;h.doorA=0;h.robbed=false;h.mesh.visible=h.emesh.visible=h.doorPivot.visible=true;if(h.ruin){h.g.remove(h.ruin);h.ruin=null}if(h.merged){scene.remove(h.merged);h.merged=null}}
+  placePeople()}
+HOUSES0.forEach(([x,z,r])=>buildHouse(x,z,r));placePeople();
+
+/* ---------- actions contextuelles ---------- */
+const acts=[];let curAct=null;
+acts.push(()=>{if(P.onBike)return null;for(const h of houses){if(!h.alive)continue;toL(h,P.pos.x,P.pos.z,LL);
+  if(Math.hypot(LL.x-1,LL.z-2.9)<1.8)return{label:h.door?'Fermer la porte':'Ouvrir la porte',fn:()=>{h.door=!h.door;beep(h.door?260:180,.18,'triangle',.18,h.door?200:120)}}}return null});
+function updateActions(){curAct=null;if(G.running)for(const f of acts){const a=f();if(a){curAct=a;break}}
+  const b=$('act');b.style.display=curAct?'grid':'none';if(curAct)setTxt('act',curAct.label)}
 
 /* ---------- vagues ---------- */
 function startWave(n){G.wave=n;G.toSpawn=Math.min(3+n*2,28);G.mul=Math.min(2.1,1+(n-1)*.11);G.spawnT=1;G.breakT=0;
@@ -797,7 +990,8 @@ updateGame=dt=>{
   if(G.toSpawn===0&&living===0){if(G.breakT<=0){G.breakT=5;const bonus=250*G.wave;G.score+=bonus;popBanner('Vague '+G.wave+' nettoyée',3,'Bonus +'+bonus)}
     else{G.breakT-=dt;if(G.breakT<=0)startWave(G.wave+1)}}
   setTxt('left',(G.toSpawn+living)?(G.toSpawn+living)+' ours restants':'Pause…');
-  updateCrates(dt);
+  updateCrates(dt);updatePeople(dt);updateDebris(dt);updateHomeLight();updateActions();
+  P.inside=P.onBike?null:insideHouse(P.pos.x,P.pos.z);document.body.classList.toggle('inside',!!P.inside);
   const ride=$('ride'),near=!P.onBike&&P.pos.distanceTo(bike.pos)<3.4;
   ride.style.display=P.onBike||near?'grid':'none';setTxt('ride',P.onBike?'Descendre':'Monter');
   $('joyLbl').textContent=P.onBike?'Haut : gaz · bas : frein · côtés : tourner':'Marcher · pousser à fond pour courir';
@@ -812,7 +1006,7 @@ function resetGame(){
   P.pos.set(SPAWN.x,H(SPAWN.x,SPAWN.z),SPAWN.z);placeBike();
   for(const b of bears){b.alive=false;b.g.visible=false}
   for(const r of rockets)scene.remove(r.m);rockets.length=0;
-  crates.forEach((c,i)=>placeCrate(c,i<4));
+  crates.forEach((c,i)=>placeCrate(c,i<4));resetHouses();
   if(AU.engG)AU.engG.gain.value=0;
   startWave(1);
 }
@@ -829,7 +1023,7 @@ $('play').addEventListener('click',startGame);$('again').addEventListener('click
 $('bestStart').textContent=G.best?'Record : '+G.best.toLocaleString('fr-FR'):'';
 for(let i=0;i<2;i++){const b=spawnBear(1);b.pos.set(rnd(-14,14),0,rnd(-14,14))}
 requestAnimationFrame(frame);
-window.__G={G,P,S,bears,fire,startGame,damage:damageBear,hurt,bike,swapWeapon,setScope,camera};
+window.__G={houses,people,debris,destroyHouse,houseBlock,G,P,S,bears,fire,startGame,damage:damageBear,hurt,bike,swapWeapon,setScope,camera};
 }
 </script>
 </body>
