@@ -42,7 +42,8 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 #wave{font:20px Bungee,sans-serif;color:var(--pink);text-shadow:0 0 14px #ff2fa8aa}
 #left{font-size:15px;opacity:.8}
 #tr{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));text-align:right}
-#best{font-size:15px;opacity:.75}
+#tr{width:150px}#best{font-size:15px;opacity:.75}
+#radar{position:absolute;left:auto;bottom:auto;right:0;top:28px;width:124px;height:124px}
 #banner{position:absolute;left:0;right:0;top:30%;text-align:center;font:clamp(28px,5vw,54px)/1.05 Bungee,sans-serif;
   color:var(--pink);text-shadow:0 0 24px #ff2fa8;opacity:0;transition:opacity .4s}
 #banner small{display:block;font:600 20px Rajdhani,sans-serif;color:var(--ink);text-shadow:0 0 8px #000;margin-top:8px}
@@ -287,7 +288,7 @@ function initAudio(){
     const comp=ctx.createDynamicsCompressor();comp.connect(ctx.destination);AU.master=ctx.createGain();AU.master.gain.value=.9;AU.master.connect(comp);
     const b=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;AU.noise=b;
     const s=ctx.createBufferSource();s.buffer=ctx.createBuffer(1,1,22050);s.connect(ctx.destination);s.start(0);
-    ctx.resume&&ctx.resume();ambience()}catch(e){AU.ctx=null}
+    ctx.resume&&ctx.resume();ambience();engine()}catch(e){AU.ctx=null}
 }
 function out(pan,gain){const ctx=AU.ctx,g=ctx.createGain();g.gain.value=gain;
   if(ctx.createStereoPanner&&pan){const p=ctx.createStereoPanner();p.pan.value=clamp(pan,-1,1);g.connect(p);p.connect(AU.master)}else g.connect(AU.master);return g}
@@ -317,6 +318,10 @@ function beep(freq,dur,type,vol,slide){if(!AU.ctx)return;const c=AU.ctx,t=c.curr
 const sfxClick=()=>{beep(1800,.04,'square',.08);setTimeout(()=>beep(900,.06,'square',.08),90)};
 const sfxHurt=()=>beep(220,.25,'sawtooth',.25,70);
 const sfxPick=()=>{beep(660,.08,'triangle',.25);setTimeout(()=>beep(990,.12,'triangle',.25),80)};
+function engine(){const c=AU.ctx,o=c.createOscillator(),o2=c.createOscillator(),f=c.createBiquadFilter(),g=c.createGain();
+  o.type='sawtooth';o2.type='square';o.frequency.value=40;o2.frequency.value=20;o.connect(f);const g2=c.createGain();g2.gain.value=.5;o2.connect(g2);g2.connect(f);
+  o.frequency.connect&&0;f.type='lowpass';f.frequency.value=700;f.Q.value=3;g.gain.value=0;f.connect(g);g.connect(AU.master);o.start();o2.start();
+  AU.eng={frequency:{setTargetAtTime:(v,t,k)=>{o.frequency.setTargetAtTime(v,t,k);o2.frequency.setTargetAtTime(v/2,t,k)}}};AU.engG=g}
 function ambience(){const c=AU.ctx,n=noiseSrc(),f=c.createBiquadFilter(),g=c.createGain(),l=c.createOscillator(),lg=c.createGain();
   f.type='lowpass';f.frequency.value=380;g.gain.value=.05;l.frequency.value=.07;lg.gain.value=.03;l.connect(lg);lg.connect(g.gain);
   n.connect(f);f.connect(g);g.connect(AU.master);n.start();l.start();
@@ -324,6 +329,7 @@ function ambience(){const c=AU.ctx,n=noiseSrc(),f=c.createBiquadFilter(),g=c.cre
     gg.gain.setValueAtTime(0,t+i*.09);gg.gain.linearRampToValueAtTime(.012,t+i*.09+.02);gg.gain.linearRampToValueAtTime(0,t+i*.09+.06);o.connect(gg);gg.connect(AU.master);o.start(t+i*.09);o.stop(t+i*.09+.07)}},1300)}
 
 /* ---------- état ---------- */
+let toggleBike=null,updateGame=null,updateBike=()=>{},onBearKilled=null;
 const G={running:false,score:0,wave:0,best:0,shake:0,time:0};
 try{G.best=+localStorage.getItem('chasseFluoBest')||0}catch(e){}
 const P={pos:new V3(),vy:0,yaw:0,pitch:0,ground:true,hp:100,hurtT:0,bob:0,speed:0,onBike:false,
@@ -350,7 +356,7 @@ let warhead,muzzle;
   muzzle=new T.Mesh(new T.SphereGeometry(.16,8,6),new T.MeshBasicMaterial({color:0xffc060,transparent:true,opacity:0,blending:T.AdditiveBlending,depthWrite:false}));
   muzzle.position.z=-.75;weapon.add(muzzle);
 }
-const W0=new V3(.24,-.14,-.58);weapon.scale.setScalar(.6);
+const W0=new V3(.2,-.15,-.62);weapon.scale.setScalar(.46);
 
 /* ---------- ours ---------- */
 const bears=[];
@@ -422,7 +428,6 @@ function damageBear(b,dmg,src){if(b.dead)return;b.hp-=dmg;b.flash=.12;b.state='c
     G.kills++;popBanner(src==='bike'?'Écrasé ! +'+pts:'+'+pts,1);sfxGrowl(dist2(b.pos),pan(b.pos),true);onBearKilled&&onBearKilled(b)}
   hitMark()}
 const dist2=p=>Math.hypot(p.x-camera.position.x,p.z-camera.position.z);
-let onBearKilled=null;
 
 /* ---------- roquettes ---------- */
 const rockets=[];
@@ -501,9 +506,82 @@ function updatePlayer(dt){
 }
 function jump(){if(!G.running)return;if(P.onBike){bikeHop();return}if(P.ground){P.vy=8.2;P.ground=false}}
 
-/* ---------- moto (placeholder v1) ---------- */
-const bike={pos:new V3(BIKE0.x,0,BIKE0.z),vel:new V3()};
-function bikeHop(){}
+/* ---------- moto ---------- */
+const bike={pos:new V3(BIKE0.x,H(BIKE0.x,BIKE0.z),BIKE0.z),vel:new V3(),yaw:2.3,speed:0,speedAbs:0,vy:0,air:false,lastG:0,pitch:0,roll:0,
+  lookYaw:0,lookPitch:-.1,lookT:0,hitCD:0,wheels:[],g:new T.Group(),tilt:new T.Group()};
+{
+  const b=bike,add=(geo,mat,x,y,z,p=b.tilt)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);p.add(m);return m};
+  const plast=new T.MeshPhongMaterial({color:0x2ee88a,emissive:0x06381e,flatShading:true,shininess:60});
+  const black=new T.MeshPhongMaterial({color:0x1a1a1e,flatShading:true,shininess:30});
+  const metal=new T.MeshPhongMaterial({color:0x9aa0a8,flatShading:true,shininess:80});
+  const tire=new T.MeshPhongMaterial({color:0x111111,flatShading:true});
+  b.g.add(b.tilt);
+  [.74,-.72].forEach(z=>{const w=new T.Group();w.position.set(0,.46,z);b.tilt.add(w);
+    const t=new T.Mesh(new T.TorusGeometry(.35,.11,6,14),tire);t.rotation.y=Math.PI/2;w.add(t);
+    const r=new T.Mesh(new T.CylinderGeometry(.24,.24,.08,8),metal);r.rotation.z=Math.PI/2;w.add(r);b.wheels.push(w)});
+  add(new T.BoxGeometry(.22,.3,.9),black,0,.72,0);
+  add(new T.BoxGeometry(.32,.32,.4),metal,0,.6,-.05);
+  add(new T.BoxGeometry(.36,.26,.5),plast,0,1.02,.22);
+  add(new T.BoxGeometry(.3,.12,.75),black,0,1.02,-.32);
+  add(new T.BoxGeometry(.26,.06,.6),plast,0,.95,-.78).rotation.x=-.25;
+  add(new T.BoxGeometry(.22,.05,.45),plast,0,.92,.82).rotation.x=.3;
+  const fork=add(new T.BoxGeometry(.07,.85,.07),metal,-.12,.85,.62);fork.rotation.x=-.4;
+  const fork2=fork.clone();fork2.position.x=.12;b.tilt.add(fork2);
+  add(new T.BoxGeometry(.78,.05,.05),black,0,1.28,.48);
+  add(new T.BoxGeometry(.3,.26,.08),plast,0,1.12,.66).rotation.x=-.3;
+  add(new T.BoxGeometry(.16,.1,.04),new T.MeshBasicMaterial({color:0xfff2c0}),0,1.12,.71);
+  const ex=add(new T.CylinderGeometry(.06,.06,.7,6),metal,.2,.62,-.45);ex.rotation.x=Math.PI/2.4;
+  scene.add(b.g);
+}
+function placeBike(){bike.pos.set(BIKE0.x,H(BIKE0.x,BIKE0.z),BIKE0.z);bike.yaw=2.3;bike.speed=bike.vy=0;bike.air=false;bike.vel.set(0,0,0);bike.lastG=bike.pos.y}
+function bikeHop(){if(!bike.air){bike.vy=6.5;bike.air=true}}
+toggleBike=()=>{if(!G.running)return;
+  if(P.onBike){if(bike.speedAbs>6)return;
+    const yaw=bike.yaw+Math.PI+bike.lookYaw;let ok=false;
+    for(const side of[1,-1,0]){const x=bike.pos.x+Math.cos(bike.yaw)*1.4*side,z=bike.pos.z-Math.sin(bike.yaw)*1.4*side-(side?0:Math.cos(bike.yaw)*1.6);
+      colRes.hit=false;feetCol(x,z,.4,99,colRes);if(!colRes.hit||side===0){P.pos.set(x,H(x,z),z);ok=true;break}}
+    P.onBike=false;P.yaw=yaw;P.pitch=bike.lookPitch;P.vy=0;bike.speed=0;bike.vel.set(0,0,0);beep(300,.12,'square',.08,150);
+  }else if(P.pos.distanceTo(bike.pos)<3.4){P.onBike=true;
+    bike.lookYaw=Math.atan2(Math.sin(P.yaw-bike.yaw-Math.PI),Math.cos(P.yaw-bike.yaw-Math.PI));bike.lookPitch=P.pitch*.5;bike.lookT=1;
+    beep(80,.35,'sawtooth',.2,160);popBanner('En selle !',1.2,'Joystick : gaz, frein, virages')}
+};
+updateBike=dt=>{
+  const b=bike,thr=input.jy,st=input.jx;
+  if(thr>.05)b.speed+=thr*15*dt*(b.speed<0?2:1);
+  else if(thr<-.05)b.speed+=thr*(b.speed>.5?30:9)*dt;
+  else b.speed-=Math.sign(b.speed)*Math.min(Math.abs(b.speed),(1.6+Math.abs(b.speed)*.2)*dt);
+  b.speed=clamp(b.speed,-6,25);b.speedAbs=Math.abs(b.speed);
+  b.yaw-=st*dt*2.3*clamp(b.speedAbs/5,0,1)*Math.sign(b.speed||1)*(1-b.speedAbs/70);
+  const fx=Math.sin(b.yaw),fz=Math.cos(b.yaw);
+  b.pos.x+=fx*b.speed*dt;b.pos.z+=fz*b.speed*dt;
+  colRes.hit=false;feetCol(b.pos.x,b.pos.z,.75,b.pos.y,colRes);
+  if(colRes.hit){b.pos.x=colRes.x;b.pos.z=colRes.z;if(b.speedAbs>4){G.shake=Math.max(G.shake,.25+b.speedAbs/60);beep(90,.2,'square',.25,40)}b.speed*=-.3}
+  b.pos.x=clamp(b.pos.x,-WORLD,WORLD);b.pos.z=clamp(b.pos.z,-WORLD,WORLD);
+  const gr=colRes.ground;
+  b.vy-=24*dt;b.pos.y+=b.vy*dt;
+  if(b.pos.y<=gr){const gv=(gr-b.lastG)/Math.max(dt,1e-3);if(b.air&&b.vy<-8)G.shake=Math.max(G.shake,.2);b.pos.y=gr;b.vy=clamp(gv,0,8);b.air=false}else if(b.pos.y-gr>.25)b.air=true;
+  b.lastG=gr;
+  const hf=H(b.pos.x+fx*.8,b.pos.z+fz*.8),hb=H(b.pos.x-fx*.8,b.pos.z-fz*.8);
+  b.pitch+=((b.air?b.pitch*.98:Math.atan2(hf-hb,1.6))-b.pitch)*Math.min(1,dt*10);
+  b.roll+=(-st*b.speedAbs/25*.4-b.roll)*Math.min(1,dt*6);
+  b.vel.set(fx*b.speed,0,fz*b.speed);
+  /* ours percutés */
+  b.hitCD-=dt;
+  for(const o of bears){if(!o.alive||o.dead)continue;const dx=o.pos.x-b.pos.x,dz=o.pos.z-b.pos.z,d=Math.hypot(dx,dz),m=1.1*o.scale+.6;if(d>=m)continue;
+    if(b.speedAbs>11&&b.hitCD<=0){b.hitCD=.4;damageBear(o,115*b.speedAbs/25,'bike');o.pos.x+=dx/d*2.5;o.pos.z+=dz/d*2.5;
+      for(let i=0;i<20;i++)glow.emit(o.pos.x,o.pos.y+1,o.pos.z,rnd(-5,5),rnd(1,6),rnd(-5,5),rnd(.3,.7),.4,.1,1,.3,.75,1,10);
+      b.speed*=.55;G.shake=Math.max(G.shake,.5);sfxBoom(3,0)}
+    else{b.pos.x-=dx/d*(m-d);b.pos.z-=dz/d*(m-d);b.speed*=.5}}
+  for(const w of b.wheels)w.rotation.x+=b.speed*dt/.46;
+  /* caméra un peu surélevée */
+  b.lookT-=dt;if(b.lookT<=0){b.lookYaw*=Math.pow(.15,dt);b.lookPitch+=(-.1-b.lookPitch)*Math.min(1,dt*1.5)}
+  P.pos.copy(b.pos);P.speed=b.speedAbs;
+  camera.position.set(b.pos.x-fx*1.5,b.pos.y+2.35,b.pos.z-fz*1.5);
+  camera.rotation.set(b.lookPitch+b.pitch*.6,b.yaw+Math.PI+b.lookYaw,b.roll*.5,'YXZ');
+  P.yaw=camera.rotation.y;
+  if(AU.eng){const t=AU.ctx.currentTime;AU.eng.frequency.setTargetAtTime(34+b.speedAbs*4.2+Math.max(0,thr)*14,t,.08);AU.engG.gain.setTargetAtTime(.07+b.speedAbs*.004+Math.max(0,thr)*.04,t,.1)}
+};
+function syncBike(){const b=bike;b.g.position.copy(b.pos);b.g.rotation.set(0,b.yaw,0);b.tilt.rotation.set(-b.pitch,0,b.roll)}
 
 /* ---------- entrées ---------- */
 const input={jx:0,jy:0,run:false,joyId:null,jox:0,joy0:0,look:new Map(),keys:{}};
@@ -532,7 +610,6 @@ function keyInput(){if(input.joyId!==null)return;const k=input.keys;const x=(k.K
   input.jx=x;input.jy=y;input.run=!!(k.ShiftLeft||k.ShiftRight)}
 ['gesturestart','gesturechange','dblclick','contextmenu','selectstart'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
 document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
-let toggleBike=null;
 
 /* ---------- interface ---------- */
 let bannerT=0;
@@ -561,7 +638,7 @@ function frame(now){requestAnimationFrame(frame);
   frameAvg=frameAvg*.95+dt*1000*.05;perfT+=dt;
   if(perfT>3&&frameAvg>21&&pixelRatio>1){pixelRatio=Math.max(1,pixelRatio-.25);renderer.setPixelRatio(pixelRatio);resize();perfT=0}
   if(G.running){keyInput();
-    if(P.onBike)updateBike(dt);else updatePlayer(dt);
+    if(P.onBike)updateBike(dt);else{updatePlayer(dt);if(AU.engG)AU.engG.gain.setTargetAtTime(0,AU.ctx.currentTime,.15)}
     if(P.reloadT>0){P.reloadT-=dt;if(P.reloadT<=0){P.reloadT=0;if(P.reserve>0){P.reserve--;P.loaded=true;sfxClick()}}}
     updateBears(dt);updateRockets(dt);updateGame&&updateGame(dt);
     if(P.hurtT>5&&P.hp<100)P.hp=Math.min(100,P.hp+dt*2.5);
@@ -570,7 +647,7 @@ function frame(now){requestAnimationFrame(frame);
   xLight.intensity*=Math.pow(.004,dt);if(xLight.intensity<.05)xLight.intensity=0;
   /* tremblement */
   if(G.shake>0){G.shake=Math.max(0,G.shake-dt*1.8);const s=G.shake*G.shake*.25;camera.rotation.x+=rnd(-s,s);camera.rotation.y+=rnd(-s,s)}
-  sky.position.copy(camera.position);
+  syncBike();sky.position.copy(camera.position);
   /* arme */
   P.kick=Math.max(0,P.kick-dt*4.5);lookVel*=.8;
   const reload=P.reloadT>0?Math.sin((1-P.reloadT/1.25)*Math.PI):0;
@@ -582,22 +659,76 @@ function frame(now){requestAnimationFrame(frame);
   renderer.clear();renderer.render(scene,camera);
   if(G.running){renderer.clearDepth();renderer.render(wScene,wCam);updateHud(dt)}
 }
-let updateGame=null,updateBike=()=>{};
 
-/* ---------- partie (v1 : un seul ours qui revient) ---------- */
+/* ---------- caisses de munitions ---------- */
+const crates=[];
+{
+  const wood=new T.MeshPhongMaterial({color:0x7a5230,flatShading:true,shininess:5}),band=new T.MeshPhongMaterial({color:0x2c2a26,flatShading:true});
+  const glowM=new T.MeshBasicMaterial({color:0x9dff4a});
+  const cg=new T.BoxGeometry(.9,.6,.6),bg=new T.BoxGeometry(.92,.62,.08),sg=new T.BoxGeometry(.5,.04,.12);
+  for(let i=0;i<16;i++){const g=new T.Group();g.add(new T.Mesh(cg,wood));
+    [-.3,.3].forEach(x=>{const m=new T.Mesh(bg,band);m.rotation.y=Math.PI/2;m.position.x=x;m.scale.x=.66;g.add(m)});
+    const s=new T.Mesh(sg,glowM);s.position.y=.32;g.add(s);scene.add(g);crates.push({g,on:false,t:0,ph:Math.random()*6})}
+}
+function placeCrate(c,near){let x,z,t=0;
+  do{const a=Math.random()*6.283,d=near?rnd(14,45):rnd(10,WORLD*.8);x=clamp((near?P.pos.x:0)+Math.cos(a)*d,-WORLD+4,WORLD-4);z=clamp((near?P.pos.z:0)+Math.sin(a)*d,-WORLD+4,WORLD-4)}while(!freeSpot(x,z,1)&&++t<40);
+  c.g.position.set(x,H(x,z)+.32,z);c.g.rotation.y=Math.random()*6;c.on=true;c.g.visible=true}
+function updateCrates(dt){const me=P.onBike?bike.pos:P.pos;
+  for(const c of crates){if(!c.on){c.t-=dt;if(c.t<=0)placeCrate(c,true);continue}
+    c.ph+=dt*2;c.g.children[3].material.color.setHSL(.27,1,.45+Math.sin(c.ph)*.15);
+    if(Math.hypot(c.g.position.x-me.x,c.g.position.z-me.z)<1.9&&Math.abs(c.g.position.y-me.y)<2.5){
+      if(P.reserve>=24){continue}c.on=false;c.g.visible=false;c.t=rnd(20,35);
+      const n=Math.min(4,24-P.reserve);P.reserve+=n;if(!P.loaded&&P.reloadT<=0)P.reloadT=1.25;sfxPick();popBanner('+'+n+' roquettes',1.1)}}}
+
+/* ---------- radar ---------- */
+const radar=document.createElement('canvas');radar.id='radar';$('tr').appendChild(radar);
+const rctx=radar.getContext('2d');let radarT=0;
+function drawRadar(){const S=radar.width=radar.height=Math.round(124*Math.min(2,devicePixelRatio||1)),c=rctx,R=S/2,sc=R/60;
+  c.clearRect(0,0,S,S);c.fillStyle='rgba(5,7,13,.55)';c.strokeStyle='rgba(255,255,255,.3)';c.lineWidth=S/120;
+  c.beginPath();c.arc(R,R,R-2,0,7);c.fill();c.stroke();c.beginPath();c.arc(R,R,R/2,0,7);c.stroke();
+  const fw=camera.getWorldDirection(pv),ang=Math.atan2(fw.x,-fw.z),cs=Math.cos(-ang),sn=Math.sin(-ang),me=camera.position;
+  const dot=(x,z,col,r,sq)=>{let dx=(x-me.x)*sc,dz=(z-me.z)*sc;const rx=dx*cs-dz*sn,rz=dx*sn+dz*cs;const d=Math.hypot(rx,rz);
+    let px=rx,pz=rz;if(d>R-6){px*=(R-6)/d;pz*=(R-6)/d}c.fillStyle=col;c.beginPath();if(sq)c.rect(R+px-r,R+pz-r,r*2,r*2);else c.arc(R+px,R+pz,r,0,7);c.fill()};
+  for(const k of crates)if(k.on)dot(k.g.position.x,k.g.position.z,'#9dff4a',S/50,1);
+  if(!P.onBike)dot(bike.pos.x,bike.pos.z,'#ffffff',S/40,1);
+  for(const b of bears)if(b.alive&&!b.dead)dot(b.pos.x,b.pos.z,'#ff2fa8',S/34);
+  c.fillStyle='#ffe6a8';c.beginPath();c.moveTo(R,R-S/18);c.lineTo(R-S/30,R+S/30);c.lineTo(R+S/30,R+S/30);c.fill()}
+
+/* ---------- vagues ---------- */
+function startWave(n){G.wave=n;G.toSpawn=Math.min(3+n*2,28);G.mul=Math.min(2.1,1+(n-1)*.11);G.spawnT=1;G.breakT=0;
+  $('wave').textContent='Vague '+n;if(n>1){P.reserve=Math.min(24,P.reserve+2)}
+  popBanner('Vague '+n,2.4,G.toSpawn+' ours mutants'+(n>1?' · plus rapides':''));sfxGrowl(20,0,true)}
+let ffT=0;
+updateGame=dt=>{
+  const living=bears.filter(b=>b.alive&&!b.dead).length;
+  if(G.toSpawn>0&&living<12){G.spawnT-=dt;if(G.spawnT<=0){spawnBear(G.mul);G.toSpawn--;G.spawnT=Math.max(.5,2.4-G.wave*.18)}}
+  if(G.toSpawn===0&&living===0){if(G.breakT<=0){G.breakT=5;const bonus=250*G.wave;G.score+=bonus;popBanner('Vague '+G.wave+' nettoyée',3,'Bonus +'+bonus)}
+    else{G.breakT-=dt;if(G.breakT<=0)startWave(G.wave+1)}}
+  setTxt('left',(G.toSpawn+living)?(G.toSpawn+living)+' ours restants':'Pause…');
+  updateCrates(dt);
+  const ride=$('ride'),near=!P.onBike&&P.pos.distanceTo(bike.pos)<3.4;
+  ride.style.display=P.onBike||near?'grid':'none';setTxt('ride',P.onBike?'Descendre':'Monter');
+  $('joyLbl').textContent=P.onBike?'Haut : gaz · bas : frein · côtés : tourner':'Marcher · pousser à fond pour courir';
+  radarT-=dt;if(radarT<=0){radarT=.07;drawRadar()}
+  ffT-=dt;if(ffT<=0){ffT=.12;const a=Math.random()*6.283,d=rnd(3,22),x=camera.position.x+Math.cos(a)*d,z=camera.position.z+Math.sin(a)*d;
+    glow.emit(x,H(x,z)+rnd(.4,2.5),z,rnd(-.3,.3),rnd(-.1,.2),rnd(-.3,.3),rnd(2,4),.09,.07,.75,1,.35,.9,0)}
+};
+
+/* ---------- partie ---------- */
 function resetGame(){
-  G.score=0;G.wave=1;G.kills=0;P.hp=100;P.loaded=true;P.reserve=10;P.reloadT=0;P.vy=0;P.yaw=0;P.pitch=0;P.onBike=false;
-  P.pos.set(SPAWN.x,H(SPAWN.x,SPAWN.z),SPAWN.z);
+  G.score=0;G.kills=0;P.hp=100;P.loaded=true;P.reserve=8;P.reloadT=0;P.vy=0;P.yaw=Math.PI*.75;P.pitch=0;P.onBike=false;P.hurtT=9;
+  P.pos.set(SPAWN.x,H(SPAWN.x,SPAWN.z),SPAWN.z);placeBike();
   for(const b of bears){b.alive=false;b.g.visible=false}
   for(const r of rockets)scene.remove(r.m);rockets.length=0;
-  spawnBear(1);$('wave').textContent='Vague 1';
+  crates.forEach((c,i)=>placeCrate(c,i<4));
+  if(AU.engG)AU.engG.gain.value=0;
+  startWave(1);
 }
-onBearKilled=()=>{setTimeout(()=>{if(G.running){spawnBear(1);P.reserve+=2}},4000)};
 function startGame(){initAudio();resetGame();G.running=true;document.body.classList.add('on');$('start').hidden=true;$('over').hidden=true;
   try{const el=document.documentElement,rf=el.requestFullscreen||el.webkitRequestFullscreen;if(rf&&!document.fullscreenElement){const r=rf.call(el);r&&r.catch&&r.catch(()=>{})}}catch(e){}
   try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})}catch(e){}
-  popBanner('Un ours rôde',2.5,'Il brille dans le noir. Ta lampe le repère.')}
-function gameOver(){G.running=false;document.body.classList.remove('on');joyEnd();input.look.clear();
+  }
+function gameOver(){G.running=false;if(AU.engG)AU.engG.gain.setTargetAtTime(0,AU.ctx.currentTime,.1);document.body.classList.remove('on');joyEnd();input.look.clear();
   const nb=G.score>G.best;if(nb){G.best=G.score;try{localStorage.setItem('chasseFluoBest',G.best)}catch(e){}}
   $('final').textContent=G.score.toLocaleString('fr-FR');
   $('overInfo').textContent=(nb?'Nouveau record ! ':'Record : '+G.best.toLocaleString('fr-FR')+' · ')+'Vague '+G.wave+' · '+G.kills+' ours abattus';
@@ -606,7 +737,7 @@ $('play').addEventListener('click',startGame);$('again').addEventListener('click
 $('bestStart').textContent=G.best?'Record : '+G.best.toLocaleString('fr-FR'):'';
 for(let i=0;i<2;i++){const b=spawnBear(1);b.pos.set(rnd(-14,14),0,rnd(-14,14))}
 requestAnimationFrame(frame);
-window.__G={G,P,bears,fire,startGame};
+window.__G={G,P,bears,fire,startGame,damage:damageBear,hurt,bike};
 }
 </script>
 </body>
