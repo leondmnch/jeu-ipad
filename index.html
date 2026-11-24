@@ -37,6 +37,7 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 .lbl{font-size:13px;letter-spacing:.04em;opacity:.75}
 #hpbar{height:14px;border-radius:7px;background:#ffffff22;overflow:hidden;margin:3px 0 10px;border:1px solid #ffffff30}
 #hp{height:100%;width:100%;background:linear-gradient(90deg,#ff3355,#ff8a5c);transition:width .15s}
+#money{font:20px Bungee,sans-serif;color:#9dff4a;text-shadow:0 0 10px #9dff4a66}
 #score{font:24px Bungee,sans-serif;color:var(--lamp);text-shadow:0 0 12px #ffb34766}
 #tc{position:absolute;left:50%;top:max(14px,env(safe-area-inset-top));transform:translateX(-50%);text-align:center}
 #wave{font:20px Bungee,sans-serif;color:var(--pink);text-shadow:0 0 14px #ff2fa8aa}
@@ -105,7 +106,7 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 <div id="hud">
   <div id="scopeO"><i class="h"></i><i class="v"></i><i class="hl"></i><i class="hr"></i><i class="vb"></i><i class="m" style="top:56%"></i><i class="m" style="top:62%"></i><i class="m" style="top:68%"></i><i class="dot"></i></div>
   <div id="cross"><i></i><i></i><i></i><i></i></div>
-  <div id="tl"><div class="lbl">Vie</div><div id="hpbar"><div id="hp"></div></div><div class="lbl">Score</div><div id="score">0</div></div>
+  <div id="tl"><div class="lbl">Vie</div><div id="hpbar"><div id="hp"></div></div><div class="lbl">Score</div><div id="score">0</div><div class="lbl" style="margin-top:6px">Argent</div><div id="money">0 $</div></div>
   <div id="tc"><div id="wave">Vague 1</div><div id="left"></div></div>
   <div id="tr"><div id="best">Record 0</div></div>
   <div id="banner"></div>
@@ -361,7 +362,7 @@ function ambience(){const c=AU.ctx,n=noiseSrc(),f=c.createBiquadFilter(),g=c.cre
 
 /* ---------- état ---------- */
 let toggleBike=null,updateGame=null,updateBike=()=>{},onBearKilled=null;
-const G={running:false,score:0,wave:0,best:0,shake:0,time:0};
+const G={running:false,money:0,score:0,wave:0,best:0,shake:0,time:0};
 try{G.best=+localStorage.getItem('chasseFluoBest')||0}catch(e){}
 const P={pos:new V3(),vy:0,yaw:0,pitch:0,ground:true,hp:100,hurtT:0,bob:0,speed:0,onBike:false,
   loaded:true,reserve:10,reloadT:0,kick:0,lastShot:0,weapon:'rl',scoped:false,swapT:0};
@@ -715,7 +716,7 @@ let hudCache={};
 function setTxt(id,v){if(hudCache[id]!==v){hudCache[id]=v;$(id).textContent=v}}
 function updateHud(dt){
   $('hp').style.width=P.hp+'%';
-  setTxt('score',G.score.toLocaleString('fr-FR'));setTxt('best','Record '+Math.max(G.best,G.score).toLocaleString('fr-FR'));
+  setTxt('score',G.score.toLocaleString('fr-FR'));setTxt('money',G.money.toLocaleString('fr-FR')+' $');setTxt('best','Record '+Math.max(G.best,G.score).toLocaleString('fr-FR'));
   if(P.weapon==='sn'){setTxt('ammoN',S.mag+' | '+S.res);setTxt('ammoS',S.rel?'rechargement…':S.mag<S.cap&&S.res?'balles · toucher : recharger':S.mag||S.res?'balles':'plus de balles !');
     $('relf').style.width=S.mag/S.cap*100+'%';$('fire').classList.toggle('empty',S.mag===0||S.cd>.3);$('ammo').classList.add('tap')}
   else{setTxt('ammoN',(P.loaded?1:0)+' | '+P.reserve);setTxt('ammoS',P.reloadT>0?'rechargement…':(P.loaded?'roquettes':(P.reserve?'':'plus de munitions !')));
@@ -972,8 +973,27 @@ function resetHouses(){for(const d of debris)scene.remove(d.m);debris.length=0;
   placePeople()}
 HOUSES0.forEach(([x,z,r])=>buildHouse(x,z,r));placePeople();
 
+/* ---------- braquage ---------- */
+const bags=[];
+const bagGeo=new T.IcosahedronGeometry(.3,0),bagM=new T.MeshPhongMaterial({color:0xb08a52,flatShading:true,emissive:0x221a08}),
+  tieM=new T.MeshBasicMaterial({color:0x9dff4a}),signM=new T.MeshBasicMaterial({color:0xffd34a});
+function sfxCash(){[1320,1760,2640].forEach((f,i)=>setTimeout(()=>beep(f,.12,'triangle',.22),i*70))}
+function rob(p){const h=p.house;if(!h||h.robbed)return;h.robbed=true;p.state='hands';p.t=7;p.speed=0;
+  p.lyaw=Math.atan2(toL(h,P.pos.x,P.pos.z,LL).x-p.lx,LL.z-p.lz);scream(p);
+  const g=new T.Group(),b=new T.Mesh(bagGeo,bagM);b.scale.set(1,1.15,1);b.position.y=.3;g.add(b);
+  const t=new T.Mesh(UBOX,tieM);t.scale.set(.16,.1,.16);t.position.y=.66;g.add(t);
+  const sg=new T.Mesh(UBOX,signM);sg.scale.set(.18,.18,.02);sg.position.set(0,.32,.31);g.add(sg);
+  const dx=P.pos.x-p.pos.x,dz=P.pos.z-p.pos.z,d=Math.hypot(dx,dz)||1;
+  g.position.set(p.pos.x+dx/d*.4,p.pos.y+1.2,p.pos.z+dz/d*.4);scene.add(g);
+  bags.push({g,vy:2,amount:Math.round(rnd(9,26))*10,fy:h.fy+.12,t:0});popBanner('Haut les mains !',1.4,'Ramasse le sac d\'argent');beep(150,.2,'square',.15)}
+function updateBags(dt){for(let i=bags.length-1;i>=0;i--){const b=bags[i];b.t+=dt;b.vy-=14*dt;b.g.position.y=Math.max(b.fy,b.g.position.y+b.vy*dt);if(b.g.position.y===b.fy)b.vy=0;
+  b.g.rotation.y+=dt*1.5;
+  if(b.t>.4&&!P.onBike&&Math.hypot(b.g.position.x-P.pos.x,b.g.position.z-P.pos.z)<1.05){G.money+=b.amount;scene.remove(b.g);bags.splice(i,1);sfxCash();popBanner('+'+b.amount+' $',1.2)}}}
+
 /* ---------- actions contextuelles ---------- */
 const acts=[];let curAct=null;
+acts.push(()=>{const h=P.inside;if(!h||h.robbed||!h.alive)return null;
+  for(const p of h.people)if(p.alive&&p.house===h&&p.state!=='flee'&&Math.hypot(p.pos.x-P.pos.x,p.pos.z-P.pos.z)<2.4)return{label:'Braquer',fn:()=>rob(p)};return null});
 acts.push(()=>{if(P.onBike)return null;for(const h of houses){if(!h.alive)continue;toL(h,P.pos.x,P.pos.z,LL);
   if(Math.hypot(LL.x-1,LL.z-2.9)<1.8)return{label:h.door?'Fermer la porte':'Ouvrir la porte',fn:()=>{h.door=!h.door;beep(h.door?260:180,.18,'triangle',.18,h.door?200:120)}}}return null});
 function updateActions(){curAct=null;if(G.running)for(const f of acts){const a=f();if(a){curAct=a;break}}
@@ -990,7 +1010,7 @@ updateGame=dt=>{
   if(G.toSpawn===0&&living===0){if(G.breakT<=0){G.breakT=5;const bonus=250*G.wave;G.score+=bonus;popBanner('Vague '+G.wave+' nettoyée',3,'Bonus +'+bonus)}
     else{G.breakT-=dt;if(G.breakT<=0)startWave(G.wave+1)}}
   setTxt('left',(G.toSpawn+living)?(G.toSpawn+living)+' ours restants':'Pause…');
-  updateCrates(dt);updatePeople(dt);updateDebris(dt);updateHomeLight();updateActions();
+  updateCrates(dt);updateBags(dt);updatePeople(dt);updateDebris(dt);updateHomeLight();updateActions();
   P.inside=P.onBike?null:insideHouse(P.pos.x,P.pos.z);document.body.classList.toggle('inside',!!P.inside);
   const ride=$('ride'),near=!P.onBike&&P.pos.distanceTo(bike.pos)<3.4;
   ride.style.display=P.onBike||near?'grid':'none';setTxt('ride',P.onBike?'Descendre':'Monter');
@@ -1002,6 +1022,7 @@ updateGame=dt=>{
 
 /* ---------- partie ---------- */
 function resetGame(){
+  G.money=0;for(const b of bags)scene.remove(b.g);bags.length=0;
   G.score=0;G.kills=0;P.hp=100;P.loaded=true;P.reserve=8;P.reloadT=0;P.vy=0;P.yaw=Math.PI*.75;P.pitch=0;P.onBike=false;P.hurtT=9;P.weapon='rl';P.swapT=0;setScope(false);document.body.classList.remove('sn');S.mag=5;S.res=15;S.rel=false;S.cd=0;
   P.pos.set(SPAWN.x,H(SPAWN.x,SPAWN.z),SPAWN.z);placeBike();
   for(const b of bears){b.alive=false;b.g.visible=false}
@@ -1023,7 +1044,7 @@ $('play').addEventListener('click',startGame);$('again').addEventListener('click
 $('bestStart').textContent=G.best?'Record : '+G.best.toLocaleString('fr-FR'):'';
 for(let i=0;i<2;i++){const b=spawnBear(1);b.pos.set(rnd(-14,14),0,rnd(-14,14))}
 requestAnimationFrame(frame);
-window.__G={houses,people,debris,destroyHouse,houseBlock,G,P,S,bears,fire,startGame,damage:damageBear,hurt,bike,swapWeapon,setScope,camera};
+window.__G={bags,houses,people,debris,destroyHouse,houseBlock,G,P,S,bears,fire,startGame,damage:damageBear,hurt,bike,swapWeapon,setScope,camera};
 }
 </script>
 </body>
