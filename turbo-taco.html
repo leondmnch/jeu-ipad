@@ -104,6 +104,10 @@ button{font:inherit;color:inherit;cursor:pointer}
 #pR{--s:clamp(104px,14vw,150px);left:calc(max(22px,env(safe-area-inset-left)) + clamp(118px,16vw,172px));bottom:max(26px,env(safe-area-inset-bottom))}
 #pG{--s:clamp(118px,16vw,168px);right:max(22px,env(safe-area-inset-right));bottom:max(60px,calc(env(safe-area-inset-bottom) + 40px));background:rgba(120,230,150,.6)}
 #pB{--s:clamp(92px,12vw,124px);right:calc(max(22px,env(safe-area-inset-right)) + clamp(132px,18vw,186px));bottom:max(18px,env(safe-area-inset-bottom));background:rgba(255,120,110,.6);font-size:17px;flex-direction:column}
+#pNd,#pNu{--s:clamp(70px,8.5vw,92px);font-size:28px;flex-direction:column;line-height:1;background:rgba(190,170,255,.55);bottom:calc(max(26px,env(safe-area-inset-bottom)) + clamp(118px,16vw,166px))}
+.pad.sm span{font-size:12px;font-family:'Patrick Hand'}
+#pNd{left:calc(max(22px,env(safe-area-inset-left)) + clamp(14px,2vw,30px))}#pNu{left:calc(max(22px,env(safe-area-inset-left)) + clamp(110px,14vw,170px))}
+#pNd.on,#pNu.on{background:rgba(160,130,255,.95)}
 #pG.on{background:rgba(70,220,120,.95)}#pB.on{background:rgba(255,80,70,.95)}
 #rot{position:fixed;inset:0;z-index:30;background:var(--paper);display:none;align-items:center;justify-content:center;text-align:center;font-family:'Permanent Marker',cursive;font-size:30px;padding:30px}
 @media (orientation:portrait) and (max-width:900px){body.racing #rot{display:flex}}
@@ -121,13 +125,15 @@ button{font:inherit;color:inherit;cursor:pointer}
   <div id="count"></div>
   <div id="msg"></div>
   <div id="speed"><span id="spd" class="num">0</span><small>km/h</small><div id="boostbar"><i id="boostI"></i></div></div>
-  <div class="tb l"><button class="hb" id="bMenu" aria-label="Retour aux maps">☰ Maps</button></div>
+  <div class="tb l"><button class="hb" id="bMenu" aria-label="Pause">⏸ Pause</button></div>
   <div class="tb r"><button class="hb" id="bRespawn">⚑ Respawn</button><button class="hb" id="bRestart">⟲ Restart</button></div>
 </div>
 
 <div id="pads" class="hide">
   <div class="pad" id="pL" data-k="left" aria-label="Gauche"><svg viewBox="0 0 10 10"><path d="M7 1 2 5l5 4z" fill="#000"/></svg></div>
   <div class="pad" id="pR" data-k="right" aria-label="Droite"><svg viewBox="0 0 10 10"><path d="M3 1l5 4-5 4z" fill="#000"/></svg></div>
+  <div class="pad sm" id="pNd" data-k="pdown" aria-label="Nez vers le bas">⤵<span>nez bas</span></div>
+  <div class="pad sm" id="pNu" data-k="pup" aria-label="Nez vers le haut">⤴<span>nez haut</span></div>
   <div class="pad" id="pB" data-k="brake">FREIN<span style="font-size:12px">/ arrière</span></div>
   <div class="pad" id="pG" data-k="gas">GAZ !</div>
 </div>
@@ -143,7 +149,7 @@ button{font:inherit;color:inherit;cursor:pointer}
       <button class="tog" id="oGhost" aria-pressed="true">Fantôme</button>
       <button class="tog" id="oFull" aria-pressed="false">Plein écran</button>
     </div>
-    <p class="hint">Tablette : gros boutons aux pouces, ⟲ Restart relance tout de suite, ⚑ Respawn renvoie au dernier checkpoint.<br>Clavier : flèches ou ZQSD/WASD, Espace = frein/drift, R = restart, Entrée = respawn.</p>
+    <p class="hint">Tablette : gros boutons aux pouces, ⟲ Restart relance tout de suite, ⚑ Respawn renvoie au dernier checkpoint.<br>Clavier AZERTY : Z accélérer · S frein/arrière · Q/D tourner · ↑/↓ en l'air : nez bas / nez haut · Entrée ou R = restart · Retour arrière = respawn · Échap = pause.</p>
   </div>
 </div>
 
@@ -161,6 +167,15 @@ button{font:inherit;color:inherit;cursor:pointer}
     <div id="endInfo"></div>
     <div id="endMedal"></div>
     <div class="row"><button class="btn" id="bAgain">⟲ Rejouer</button><button class="btn alt" id="bMaps">Retour aux maps</button></div>
+  </div>
+</div>
+<div id="pause" class="screen hide" style="display:flex;align-items:center;justify-content:center;background:rgba(10,10,20,.5)">
+  <div class="box sk" style="width:min(460px,100%);padding:22px 26px;background:var(--paper);display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center">
+    <h3 class="marker" style="font-size:40px;margin:0">Pause</h3>
+    <button class="btn" id="pResume" style="width:100%">▶ Reprendre</button>
+    <button class="btn alt" id="pRestart" style="width:100%">⟲ Restart</button>
+    <button class="btn alt" id="pMaps" style="width:100%">Retour aux maps</button>
+    <p class="hint" style="margin:0">Échap pour reprendre</p>
   </div>
 </div>
 <div id="rot">Tourne ton iPad en mode paysage 🔄</div>
@@ -540,8 +555,8 @@ function nearest(T,P,idx){const S=T.S,N=S.length;const lo=Math.max(0,idx-25),hi=
   let t=proj(j);if(t<0&&j>0){j--;t=proj(j)}t=clamp(t,0,1);const a=S[j],b=S[j+1];
   NS.j=j;NS.t=t;NS.d2=bd;NS.c.lerpVectors(a.p,b.p,t);NS.u.lerpVectors(a.u,b.u,t).normalize();NS.r.lerpVectors(a.r,b.r,t).normalize();NS.f.lerpVectors(a.f,b.f,t).normalize();NS.w=lerp(a.w,b.w,t);
   _a.subVectors(P,NS.c);NS.lat=_a.dot(NS.r);NS.h=_a.dot(NS.u);NS.surf=a.surf&&b.surf;NS.bar=a.bar&&b.bar;NS.boost=(t<.5?a:b).boost&&NS.surf;return NS}
-function newCar(){return{P:new V(),v:new V(),f:new V(0,0,1),u:new V(0,1,0),idx:0,grounded:false,drift:false,boostT:0,steer:0,air:0,fallen:false,land:0,wall:0,onBoost:false,vF:0}}
-function placeCar(car,T,i,speed=0){const s=T.S[i];car.P.copy(s.p);car.f.copy(s.f);car.u.copy(s.u);car.v.copy(s.f).multiplyScalar(speed);car.idx=i;car.grounded=true;car.drift=false;car.boostT=0;car.air=0;car.fallen=false;car.steer=0}
+function newCar(){return{P:new V(),v:new V(),f:new V(0,0,1),u:new V(0,1,0),idx:0,grounded:false,drift:false,boostT:0,steer:0,air:0,fallen:false,land:0,wall:0,onBoost:false,vF:0,pw:0,gpw:0,fPrev:new V(0,0,1),crash:0}}
+function placeCar(car,T,i,speed=0){const s=T.S[i];car.P.copy(s.p);car.f.copy(s.f);car.u.copy(s.u);car.v.copy(s.f).multiplyScalar(speed);car.idx=i;car.grounded=true;car.drift=false;car.boostT=0;car.air=0;car.fallen=false;car.steer=0;car.pw=0;car.gpw=0;car.fPrev.copy(car.f)}
 function stepCar(car,T,inp,dt){
   car.steer+=clamp(inp.steer-car.steer,-dt*7,dt*7);
   const s=nearest(T,car.P,car.idx);car.idx=s.j;
@@ -550,10 +565,12 @@ function stepCar(car,T,inp,dt){
     if(car.grounded){if(s.h<.7&&s.h>-1.6&&vn<6)ground=true}else if(s.h<.1&&s.h>-1.6&&vn<1)ground=true}
   if(ground&&s.u.y<-.15&&car.v.length()<13){ground=false;car.v.addScaledVector(s.u,-2)}
   const left=_b;
+  if(ground&&!car.grounded){const ang=Math.acos(clamp(car.u.dot(s.u),-1,1));
+    if(ang>1.9){car.fallen=true;car.crash=2}else if(ang>.38){car.v.multiplyScalar(1-clamp((ang-.38)/1.1,0,.65));car.crash=1;car.land=1}}
   if(ground){const landing=!car.grounded;car.P.addScaledVector(s.u,-s.h);
     const sp=car.v.length(),vn=car.v.dot(s.u);car.v.addScaledVector(s.u,-vn);
     if(!landing){const l=car.v.length();if(l>1e-4)car.v.multiplyScalar(sp/l)}else{car.land=Math.min(1,-vn/25);car.air=0}
-    car.u.copy(s.u);car.f.addScaledVector(car.u,-car.f.dot(car.u)).normalize();
+    car.u.copy(s.u);car.f.addScaledVector(car.u,-car.f.dot(car.u)).normalize();car.pw=0;
     left.crossVectors(car.u,car.f);
     let vF=car.v.dot(car.f),vL=car.v.dot(left);
     car.onBoost=s.boost;if(s.boost)car.boostT=2.0;
@@ -576,9 +593,14 @@ function stepCar(car,T,inp,dt){
     if(vF>0)vF+=lost*(car.drift?.5:.2);if(car.drift)vF-=6*dt;
     car.v.copy(car.f).multiplyScalar(vF).addScaledVector(left,nvL);car.vF=vF;car.slip=nvL;
   }else{car.drift=false;car.onBoost=false;car.v.y-=GRAV*dt;car.air+=dt;
-    _q.setFromAxisAngle(YA,car.steer*1.3*dt);car.f.applyQuaternion(_q);car.v.applyQuaternion(_q.setFromAxisAngle(YA,car.steer*.25*dt));
-    car.u.lerp(YA,1-Math.exp(-1.6*dt)).normalize();car.f.addScaledVector(car.u,-car.f.dot(car.u)).normalize();car.vF=car.v.dot(car.f);car.slip=0}
-  car.grounded=ground;car.boostT=Math.max(0,car.boostT-dt);
+    if(car.air===dt)car.pw=clamp(car.gpw*.5,-1.2,1.2);
+    // pitch control: +1 = nose down (progressive, capped)
+    const pin=inp.pitch||0;if(pin)car.pw=clamp(car.pw+pin*3.2*dt,-1.9,1.9);else car.pw*=Math.exp(-.9*dt);
+    left.crossVectors(car.u,car.f).normalize();_q.setFromAxisAngle(left,car.pw*dt);car.f.applyQuaternion(_q);car.u.applyQuaternion(_q);
+    _q.setFromAxisAngle(YA,car.steer*1.3*dt);car.f.applyQuaternion(_q);car.u.applyQuaternion(_q);car.v.applyQuaternion(_q.setFromAxisAngle(YA,car.steer*.25*dt));
+    car.u.normalize();car.f.addScaledVector(car.u,-car.f.dot(car.u)).normalize();car.vF=car.v.dot(car.f);car.slip=0}
+  if(ground){_a.crossVectors(car.fPrev,car.f);const l2=_b.crossVectors(car.u,car.f);car.gpw=lerp(car.gpw,-_a.dot(l2)/dt*-1,.5)}
+  car.fPrev.copy(car.f);car.grounded=ground;car.boostT=Math.max(0,car.boostT-dt);
   car.P.addScaledVector(car.v,dt);
   // barriers
   if(s.bar){_a.subVectors(car.P,s.c);const lat=_a.dot(s.r),h=_a.dot(s.u),lim=s.w-1.35;
@@ -597,7 +619,8 @@ function botInput(car,T){const S=T.S,v=car.v.length(),la=Math.min(S.length-1,car
     const R=(b.d-a.d)/dy,dist=a.d-S[car.idx].d;const rate=x=>x<10?x/10*2.6:lerp(2.6,1.5,clamp((x-10)/70,0,1));let vm=20;while(vm<130&&vm/R<rate(vm)*.92)vm+=2;
     const allowed=Math.sqrt(vm*vm+2*55*Math.max(0,dist));need=Math.min(need,allowed)}
   const br=v>need+1||(Math.abs(ang)>.55&&v>40);
-  return{throttle:!br,brake:br,steer:clamp(ang*2.6,-1,1)}}
+  let pitch=0;const bp=window.TT?TT.botPitch:undefined;if(bp===0||bp===-1){pitch=bp}else if(!car.grounded){const s=S[Math.min(S.length-1,car.idx+8)];pitch=clamp(car.f.dot(s.u)*5-car.pw*.6,-1,1)}
+  return{throttle:!br,brake:br,steer:clamp(ang*2.6,-1,1),pitch}}
 /* ================= RACE ================= */
 function crossFrac(T,i,P0,P1){const s=T.S[i];const a0=_a.subVectors(P0,s.p).dot(s.f),a1=_b.subVectors(P1,s.p).dot(s.f);if(a0<0&&a1>=0){_a.subVectors(P1,s.p);if(Math.abs(_a.dot(s.r))<s.w+3&&Math.abs(_a.dot(s.u))<14)return a0/(a0-a1)}return-1}
 function makeRace(mi){const def=MAPS[mi],T=buildTrack(def);return{mi,def,T,car:newCar(),phase:'count',cd:3,t:0,cpNext:0,cpTimes:[],cpState:[],rec:[],steps:0,final:null,fallT:0,respawns:0}}
@@ -619,8 +642,8 @@ function simRace(R,inp,dt,ev){
 }
 const _m=new THREE.Matrix4(),_l=new V();
 function carQuat(c,out=new Q()){_l.crossVectors(c.u,c.f);_m.makeBasis(_l,c.u,c.f);return out.setFromRotationMatrix(_m)}
-function simulate(mi,maxT=200){const R=makeRace(mi);resetRace(R);R.phase='run';let falls=[];const ev=(e,a,b2,c2)=>{if(e==='fall')falls.push(b2+':'+Math.round(c2))};
-  let n=0;while((R.phase==='run'||R.phase==='count')&&R.t<maxT&&falls.length<4){if(R.phase==='count')R.phase='run';simRace(R,botInput(R.car,R.T),STEP,ev);n++}return{map:R.def.name,finished:R.phase==='done',time:R.final,respawns:R.respawns,falls,cps:R.cpTimes.map(x=>+x.toFixed(2)),len:Math.round(R.T.S[R.T.finish].d),log:falls.length?R.T.log.join(' '):''}}
+function simulate(mi,maxT=200){const R=makeRace(mi);resetRace(R);R.phase='run';let falls=[],crashes=0;const ev=(e,a,b2,c2)=>{if(e==='fall')falls.push(b2+':'+Math.round(c2))};
+  let n=0;while((R.phase==='run'||R.phase==='count')&&R.t<maxT&&falls.length<4){if(R.phase==='count')R.phase='run';simRace(R,botInput(R.car,R.T),STEP,ev);if(R.car.crash){crashes++;R.car.crash=0}n++}return{map:R.def.name,finished:R.phase==='done',time:R.final,respawns:R.respawns,falls,crashes,crashes,cps:R.cpTimes.map(x=>+x.toFixed(2)),len:Math.round(R.T.S[R.T.finish].d),log:falls.length?R.T.log.join(' '):''}}
 
 /* ================= RENDERER / SCENE ================= */
 makeTextures();makeGeos();
@@ -640,7 +663,7 @@ function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);c
 addEventListener('resize',resize);resize();
 
 let world=null,race=null,state='home';
-const cam={p:new V(0,5,-10),look:new V(),up:new V(0,1,0),fov:70,shake:0};
+const cam={off:new V(0,4,-9),p:new V(0,5,-10),look:new V(),up:new V(0,1,0),fov:70,shake:0};
 function disposeTree(o){o.traverse(x=>{if(x.geometry&&!Object.values(G).includes(x.geometry))x.geometry.dispose();if(x.material){const ms=Array.isArray(x.material)?x.material:[x.material];ms.forEach(m=>{if(m.map&&!Object.values(TEX).includes(m.map))m.map.dispose();m.dispose()})}})}
 function setupScene(th){const sc=new THREE.Scene();sc.fog=new THREE.Fog(th.fog,th.fogN,th.fogF);sc.background=new C(th.fog);
   const hl=new THREE.HemisphereLight(th.hemi[0],th.hemi[1],th.hemi[2]);sc.add(hl);const dl=new THREE.DirectionalLight(th.sun[0],th.sun[1]);dl.position.set(.5,1,.3);sc.add(dl);
@@ -650,7 +673,7 @@ function loadMap(mi){if(world){disposeTree(world.scene);}const R=makeRace(mi);co
 function afterReset(quick){trail.reset();cowTrail.reset();parts.clear();const c=race.car;carQuat(c,carM.root.quaternion);carM.root.position.copy(c.P);prevP.copy(c.P);prevQ.copy(carM.root.quaternion);
   snapCam();world.W.gates.forEach(g=>g.mat.color.setHex(g.col));cow.position.copy(c.P).addScaledVector(c.u,6).addScaledVector(c.f,-8);
   $('split').className='num';$('msg').textContent='';hideEnd();cdShown=null;updateHudStatic()}
-function snapCam(){const c=race.car;cam.p.copy(c.P).addScaledVector(c.f,-9).addScaledVector(c.u,3.9);cam.look.copy(c.P).addScaledVector(c.f,4).addScaledVector(c.u,1.9);cam.up.copy(c.u);cam.fov=70}
+function snapCam(){const c=race.car;cam.p.copy(c.P).addScaledVector(c.f,-9).addScaledVector(c.u,3.9);cam.look.copy(c.P).addScaledVector(c.f,4).addScaledVector(c.u,1.9);cam.up.copy(c.u);cam.fov=70;cam.off.copy(cam.p).sub(c.P)}
 
 /* ================= SHOWROOM ================= */
 let show=null;
@@ -660,16 +683,21 @@ function buildShow(){const th=THEMES.prairie;const sc=setupScene(th);sc.fog=null
 function enterShow(){if(!show)buildShow();const sc=show.scene;sc.add(carM.root,cow,trail.mesh);carM.root.position.set(0,0,0);carM.root.quaternion.identity();carM.flames.forEach(f=>f.visible=true);trail.reset();scene=sc}
 
 /* ================= INPUT ================= */
-const key={},tin={left:0,right:0,gas:0,brake:0};
-const KM={ArrowUp:'gas',KeyW:'gas',KeyZ:'gas',ArrowDown:'brake',KeyS:'brake',Space:'brake',ArrowLeft:'left',KeyA:'left',KeyQ:'left',ArrowRight:'right',KeyD:'right'};
-addEventListener('keydown',e=>{if(e.repeat&&!KM[e.code])return;if(KM[e.code]){key[KM[e.code]]=1;if(state==='race')e.preventDefault()}
-  if(state==='race'){if(e.code==='KeyR'||e.code==='Backspace'||e.code==='Delete'){e.preventDefault();doRestart()}if(e.code==='Enter'||e.code==='KeyE'){e.preventDefault();doRespawn()}if(e.code==='Escape')goSelect()}
-  else if(state==='end'){if(e.code==='Enter'||e.code==='KeyR'){e.preventDefault();doRestart()}if(e.code==='Escape')goSelect()}});
-addEventListener('keyup',e=>{if(KM[e.code])key[KM[e.code]]=0});
-addEventListener('blur',()=>{for(const k in key)key[k]=0;for(const k in tp)delete tp[k];recalcPads()});
+const key={},tin={left:0,right:0,gas:0,brake:0,pdown:0,pup:0};
+// AZERTY: letters read from e.key (layout-aware); arrows from e.code
+const KL={z:'gas',s:'brake',q:'left',d:'right'},KC={ArrowUp:'pdown',ArrowDown:'pup',ArrowLeft:'left',ArrowRight:'right',Space:'brake'},held={};
+addEventListener('keydown',e=>{const act=KL[(e.key||'').toLowerCase()]||KC[e.code];
+  if(act){held[e.code]=act;key[act]=1;if(state==='race'||state==='end')e.preventDefault()}
+  if(e.repeat)return;
+  if(state==='race'||state==='end'){
+    if(e.key==='Enter'||e.code==='KeyR'||(e.key||'').toLowerCase()==='r'){e.preventDefault();doRestart()}
+    else if(e.code==='Backspace'||e.code==='Delete'){e.preventDefault();if(state==='race')doRespawn()}
+    else if(e.code==='Escape'){e.preventDefault();if(state==='race')togglePause();else goSelect()}}});
+addEventListener('keyup',e=>{const act=held[e.code];if(act){delete held[e.code];if(!Object.values(held).includes(act))key[act]=0}});
+addEventListener('blur',()=>{for(const k in key)key[k]=0;for(const k in held)delete held[k];for(const k in tp)delete tp[k];recalcPads()});
 const tp={},pads=[...document.querySelectorAll('.pad')];
 function padAt(x,y){let best=null,bd=1e9;for(const p of pads){const r=p.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,rad=r.width/2,d=Math.hypot(x-cx,y-cy)/rad;if(d<1.4&&d<bd){bd=d;best=p.dataset.k}}return best}
-function recalcPads(){tin.left=tin.right=tin.gas=tin.brake=0;for(const k of Object.values(tp))if(k)tin[k]=1;pads.forEach(p=>p.classList.toggle('on',!!tin[p.dataset.k]))}
+function recalcPads(){tin.left=tin.right=tin.gas=tin.brake=tin.pdown=tin.pup=0;for(const k of Object.values(tp))if(k)tin[k]=1;pads.forEach(p=>p.classList.toggle('on',!!tin[p.dataset.k]))}
 const padsEl=$('pads');
 document.addEventListener('pointerdown',e=>{if(state!=='race'&&state!=='end')return;if(e.target.closest('.hb,.screen'))return;const k=padAt(e.clientX,e.clientY);if(!k)return;audioResume();tp[e.pointerId]=k;recalcPads();e.preventDefault()},{passive:false});
 document.addEventListener('pointermove',e=>{if(!(e.pointerId in tp))return;const k=padAt(e.clientX,e.clientY);if(k!==tp[e.pointerId]){tp[e.pointerId]=k;recalcPads()}});
@@ -677,10 +705,10 @@ const up=e=>{if(e.pointerId in tp){delete tp[e.pointerId];recalcPads()}};
 document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
 document.addEventListener('gesturestart',e=>e.preventDefault());document.addEventListener('dblclick',e=>e.preventDefault());
 document.addEventListener('touchmove',e=>{if(!e.target.closest('.screen'))e.preventDefault()},{passive:false});
-function readInput(){if(window.TT&&TT.bot&&race)return botInput(race.car,race.T);const L=key.left||tin.left,Rr=key.right||tin.right;return{throttle:!!(key.gas||tin.gas),brake:!!(key.brake||tin.brake),steer:(L?1:0)-(Rr?1:0)}}
+function readInput(){if(window.TT&&TT.bot&&race)return botInput(race.car,race.T);const L=key.left||tin.left,Rr=key.right||tin.right;return{throttle:!!(key.gas||tin.gas),brake:!!(key.brake||tin.brake),steer:(L?1:0)-(Rr?1:0),pitch:((key.pdown||tin.pdown)?1:0)-((key.pup||tin.pup)?1:0)}}
 let guardT=0;document.addEventListener('click',e=>{if(performance.now()<guardT){e.stopPropagation();e.preventDefault()}},true);
 const press=(el,fn)=>el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();audioResume();guardT=performance.now()+450;fn()});
-press($('bRestart'),()=>doRestart());press($('bRespawn'),()=>doRespawn());press($('bMenu'),()=>goSelect());
+press($('bRestart'),()=>doRestart());press($('bRespawn'),()=>doRespawn());press($('bMenu'),()=>togglePause(true));
 
 /* ================= AUDIO ================= */
 let AC=null,master,eg,eo1,eo2,ef,noiseBuf;
@@ -711,10 +739,14 @@ function onEvent(e,a,b){const R=race,best=bestOf(R.def.id);
     if(isRec){store.maps[R.def.id]={time:t,splits:R.cpTimes.slice(),ghost:R.rec.slice()};save()}
     [784,988,1175,1568].forEach((f,i)=>setTimeout(()=>beep(f,.22,'square',.16),i*110));
     if(isRec)showMsg('NOUVEAU RECORD !',2.5);endTimer=1.4;R.wasRec=isRec;R.prev=prev}
+  if(e==='crash'){showMsg('Atterrissage raté !',.9)}
   if(e==='fall'){if(a==='restart'){afterReset(true)}else{showMsg('Respawn',.8);afterRespawn()}}}
 function afterRespawn(){trail.reset();const c=race.car;carQuat(c,carM.root.quaternion);prevP.copy(c.P);prevQ.copy(carM.root.quaternion);snapCam()}
-function doRestart(){if(!race)return;audioResume();hideEnd();state='race';showRace(true);resetRace(race,true);afterReset(true)}
-function doRespawn(){if(!race||state!=='race')return;const r=respawnRace(race);if(r==='restart')afterReset(true);else if(r==='cp'){showMsg('Respawn',.7);afterRespawn()}}
+let paused=false;
+function togglePause(on){if(state!=='race')return;paused=on==null?!paused:on;$('pause').classList.toggle('hide',!paused);$('pause').style.display=paused?'flex':'none';for(const k in tp)delete tp[k];recalcPads();if(paused)engineAudio(false,0);last=performance.now()}
+function unpause(){paused=false;$('pause').classList.add('hide');$('pause').style.display='none'}
+function doRestart(){if(!race)return;unpause();audioResume();hideEnd();state='race';showRace(true);resetRace(race,true);afterReset(true)}
+function doRespawn(){if(!race||state!=='race'||paused)return;const r=respawnRace(race);if(r==='restart')afterReset(true);else if(r==='cp'){showMsg('Respawn',.7);afterRespawn()}}
 function showEnd(){const R=race,m=R.def,t=R.final,best=bestOf(m.id);state='end';$('end').classList.remove('hide');$('pads').classList.add('hide');
   $('endMap').textContent=m.name+' · '+m.diff;$('endTime').textContent=fmt(t);$('endRec').classList.toggle('hide',!R.wasRec);
   $('endInfo').innerHTML=R.prev!=null?('Ancien record : <b class="num">'+fmt(R.prev)+'</b> ('+fmtD(t-R.prev)+')'):'Premier chrono enregistré !';
@@ -726,7 +758,7 @@ function hideEnd(){$('end').classList.add('hide')}
 /* ================= SCREENS ================= */
 function showRace(on){$('hud').classList.toggle('hide',!on);$('pads').classList.toggle('hide',!on);document.body.classList.toggle('racing',on)}
 function goHome(){state='home';showRace(false);hideEnd();$('select').classList.add('hide');$('home').classList.remove('hide');enterShow();engineAudio(false,0)}
-function goSelect(){state='select';showRace(false);hideEnd();$('home').classList.add('hide');$('select').classList.remove('hide');renderMaps();engineAudio(false,0)}
+function goSelect(){unpause();state='select';showRace(false);hideEnd();$('home').classList.add('hide');$('select').classList.remove('hide');renderMaps();engineAudio(false,0)}
 function startMap(mi){camera.clearViewOffset();$('home').classList.add('hide');audioResume();$('select').classList.add('hide');state='race';showRace(true);loadMap(mi)}
 function renderMaps(){$('maps').innerHTML=MAPS.map((m,i)=>{const b=bestOf(m.id),th=THEMES[m.theme],T=medalT(m.author),md=medalOf(m,b&&b.time);
   return`<button class="card" data-i="${i}"><div class="sky" style="background:linear-gradient(180deg,${th.sky[0]},${th.sky[1]} 60%,${th.ground||th.sky[2]})"><span class="diff" style="color:${m.dc}">${i+1} · ${m.diff}</span><b>${m.name}</b></div>
@@ -734,7 +766,7 @@ function renderMaps(){$('maps').innerHTML=MAPS.map((m,i)=>{const b=bestOf(m.id),
   <div class="medals">${T.map((t,k)=>`<span class="md m${k} ${md>=k?'got':''}"><i></i><span class="num" style="font-size:14px">${fmt(t)}</span></span>`).join('')}</div></div></button>`}).join('')}
 $('maps').addEventListener('click',e=>{const c=e.target.closest('.card');if(c)startMap(+c.dataset.i)});
 $('bPlay').addEventListener('click',()=>{audioResume();goSelect()});$('bHome').addEventListener('click',goHome);
-$('bAgain').addEventListener('click',()=>doRestart());$('bMaps').addEventListener('click',goSelect);
+$('bAgain').addEventListener('click',()=>doRestart());$('pResume').addEventListener('click',()=>togglePause(false));$('pRestart').addEventListener('click',()=>doRestart());$('pMaps').addEventListener('click',()=>goSelect());$('bMaps').addEventListener('click',goSelect);
 const togs={oSound:'sound',oCow:'cow',oGhost:'ghost'};
 for(const id in togs){const el=$(id);el.setAttribute('aria-pressed',store.opts[togs[id]]);el.addEventListener('click',()=>{store.opts[togs[id]]=!store.opts[togs[id]];el.setAttribute('aria-pressed',store.opts[togs[id]]);save();audioResume()})}
 $('oFull').addEventListener('click',()=>{const d=document,el=d.documentElement;try{if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen).call(d)}else{const f=el.requestFullscreen||el.webkitRequestFullscreen;const p=f&&f.call(el);if(p&&p.catch)p.catch(()=>{})}}catch(e){}});
@@ -754,8 +786,10 @@ function frame(now){requestAnimationFrame(frame);let dt=Math.min(.05,(now-last)/
     trail.update(new V(0,2.02,-2.6),new V(1,.35,0).normalize());for(let i=0;i<trail.pts.length;i++)trail.pts[i].p.z=-2.6-i*.45;
     renderer.render(scene,camera);return}
   if(state==='select'||!race)return;
+  if(paused){renderer.render(scene,camera);return}
   const inp=readInput();const R=race,c=R.car;
   acc+=dt;let n=0;while(acc>=STEP&&n<8){prevP.copy(c.P);carQuat(c,prevQ);simRace(R,inp,STEP,onEvent);acc-=STEP;n++}if(n>=8)acc=0;
+  if(c.crash===1&&R.phase==='run'){c.crash=0;showMsg('Atterrissage raté !',.9);cam.shake=.8}else if(c.crash===2){c.crash=0;showMsg('Crash !',.9)}
   const al=acc/STEP;
   carM.root.position.lerpVectors(prevP,c.P,al);carQuat(c,curQ);carM.root.quaternion.copy(prevQ).slerp(curQ,al);
   // countdown display
@@ -807,7 +841,7 @@ function frame(now){requestAnimationFrame(frame);let dt=Math.min(.05,(now-last)/
   const rp=carM.root.position;const vel=spd;const dist=8.6+Math.min(vel,120)*.018;
   const back=c.grounded?c.f:tmpV2.copy(c.v).setY(c.v.y*.3).normalize();if(!c.grounded&&c.v.lengthSq()<4)back.copy(c.f);
   const tp2=tmpV.copy(rp).addScaledVector(back,-dist).addScaledVector(cam.up,3.9);
-  const k1=1-Math.exp(-(c.grounded?9:5)*dt);cam.p.lerp(tp2,k1);
+  tp2.sub(rp);cam.off.lerp(tp2,1-Math.exp(-(c.grounded?7:4)*dt));cam.p.copy(rp).add(cam.off);
   cam.up.lerp(c.u,1-Math.exp(-5*dt)).normalize();
   cam.look.lerp(tmpV.copy(rp).addScaledVector(c.f,4).addScaledVector(c.u,1.9),1-Math.exp(-14*dt));
   // keep camera at min distance
@@ -827,7 +861,7 @@ function frame(now){requestAnimationFrame(frame);let dt=Math.min(.05,(now-last)/
 document.addEventListener('visibilitychange',()=>{if(document.hidden)engineAudio(false,0);last=performance.now()});
 function trace(mi,from,to){const R=makeRace(mi);resetRace(R);R.phase='run';const o=[];let n=0;
   while(R.phase==='run'&&R.t<60&&n<30000){const inp=botInput(R.car,R.T);simRace(R,inp,STEP,null);n++;const c=R.car;if(c.idx>=from&&c.idx<=to&&n%6==0){const s=nearest(R.T,c.P,c.idx);o.push(`i=${c.idx} v=${c.v.length().toFixed(1)} vF=${c.vF.toFixed(1)} g=${c.grounded} lat=${s.lat.toFixed(2)} h=${s.h.toFixed(2)} w=${s.w.toFixed(1)} st=${c.steer.toFixed(2)} thr=${inp.throttle} br=${inp.brake} d=${c.drift}`)}if(c.idx>to||c.fallen)break}return o}
-window.TT={get show(){return show},get ghostVis(){return ghostM.root.visible},get calls(){return renderer.info.render.calls},get tris(){return renderer.info.render.triangles},simulate,trace,MAPS,get race(){return race},startMap,goSelect,doRestart,key,tin,get state(){return state}};
+window.TT={get paused(){return paused},get show(){return show},get ghostVis(){return ghostM.root.visible},get calls(){return renderer.info.render.calls},get tris(){return renderer.info.render.triangles},simulate,trace,MAPS,get race(){return race},startMap,goSelect,doRestart,key,tin,get state(){return state}};
 goHome();requestAnimationFrame(frame);
 }
 </script>
