@@ -2915,6 +2915,8 @@ async function endingD(w) {
 /* =====================================================================
    FIN E — LA FEINTE
    ===================================================================== */
+// façade de l'immeuble sous le toit (pour regarder dans le vide)
+function roofFacade() { box(30, 148, 30, buildingMat(1), 0, -150.3, 0, { geo: boxUV(30, 148, 30, 16, 32) }); }
 function neonPuddles() {
   const tex = cachedTex('puddleNeon', () => ctex(128, 128, (g, w, h) => { g.fillStyle = '#0a0c14'; g.fillRect(0, 0, w, h); const cs = ['#ff3b4e', '#5fd4ff', '#ff4fd8', '#ffb347']; for (let i = 0; i < 9; i++) { g.fillStyle = cs[i % 4]; g.globalAlpha = .5; g.fillRect(rnd(0, w), rnd(0, h), rnd(4, 14), rnd(20, 70)); } g.globalAlpha = 1; }));
   const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: .75, depthWrite: false });
@@ -2968,7 +2970,8 @@ function feinteQTE(w, tries) {
 }
 async function endingE(w) {
   doneObj('edge'); A.seqStop('heart');
-  P.lock++; hideGun(w); neonPuddles();
+  P.lock++; hideGun(w); neonPuddles(); roofFacade();
+  const wl = pLight(0xffe0c0, 14, 9, 0, 3, 0); onUpdate(() => wl.position.set(w.position.x, Math.max(3, w.position.y + 2.5), w.position.z + .5));
   P.pos.set(0, 0, -11.8); P.yaw = PI; P.pitch = 0;
   w.position.set(0, 0, -3.2); faceTo(w, 0, -11.8);
   await talk([['Det. Dale Whitmore', "Assez joué, Carter !"], ['', "Il fonce sur vous. Derrière vous, le rebord. Sous vos pieds, le béton trempé reflète les néons comme un miroir."], ['', G.touch ? "Touche « → DROITE » pour esquiver, puis « ← FEINTE » au dernier moment !" : "Appuie sur D pour esquiver à droite, puis sur Q au dernier moment pour la feinte !"]]);
@@ -3000,7 +3003,7 @@ async function endingE(w) {
   offUpdate(lookU);
   // la caméra se penche au-dessus du vide
   P.cam = { pos: camera.position.clone(), yaw: P.yaw, pitch: P.pitch };
-  await camTo(new V3(clamp(w.position.x, -3, 3), 1.75, -14.3), new V3(clamp(w.position.x, -3, 3), -60, -17), 1300);
+  await camTo(new V3(clamp(w.position.x, -3, 3), 2.0, -15.6), new V3(clamp(w.position.x, -3, 3), -60, -30), 1300);
   await wait(1500); w.visible = false; offUpdate(slide);
   const r = glowSprite(0xff2030, 14), b = glowSprite(0x2040ff, 14); r.position.set(-6, -146, -40); b.position.set(6, -146, -40);
   onUpdate(() => { const k = Math.floor(G.time * 4) % 2; r.visible = !!k; b.visible = !k; });
@@ -3087,7 +3090,8 @@ async function endingF(w) {
   // mise en scène à la troisième personne
   const mike = makeMike(); world.add(mike); mike.position.set(0, 0, -8); mike.rotation.y = 0;
   w.position.set(0, 0, -2.6); w.rotation.y = PI; w.userData.arms[1].rotation.x = -1.5;
-  camAt(new V3(5.6, 2.1, -3.2), new V3(0, 1.3, -7.6));
+  camAt(new V3(5.6, 2.1, -3.2), new V3(0, 1.3, -7.6)); roofFacade();
+  pLight(0xfff0e0, 16, 10, 2.5, 3, -6); pLight(0xffe0c0, 10, 8, 1.5, 3, -2);
   A.bang(); await wait(400);
   await say('Det. Dale Whitmore', "Adieu, Carter.");
   // le temps se fige
@@ -3170,7 +3174,7 @@ async function endingF(w) {
   await tween(900, k => binds.forEach(b => b.scale.setScalar(2 - k * 1.55)));
   w.userData.arms.forEach(a => a.rotation.set(0, 0, 0)); w.userData.body.position.y = 0; w.userData.legs.forEach(l => l.knee.rotation.x = 0);
   await say('', "Les ombres de Kage rampent sur le sol, grimpent le long de ses jambes et le ligotent comme un colis.");
-  await camTo(new V3(11, 2.6, 2.5), new V3(16, -.3, -2.6), 1400);
+  await camTo(new V3(21.5, .8, 2.5), new V3(16.2, -.8, -2.6), 1400); const hl = pLight(0xb090ff, 20, 8, 19, 0, -1.5);
   const from = w.position.clone(), to = new V3(16.4, -1.6, -2.6);
   await tween(2200, k => { w.position.lerpVectors(from, to, k); w.position.y += Math.sin(k * PI) * 2.5; w.rotation.z = Math.sin(k * 8) * .1; });
   const rope = box(.06, 1, .06, M(0x07040c), 15.6, 0, -2.6); rope.scale.y = 2.4; rope.position.set(16, .35, -2.6); rope.rotation.z = -.35;
@@ -3185,10 +3189,10 @@ async function endingF(w) {
   if (rain) rain.frozen = false; A.rain(.35); A.siren(.07);
   // la plume
   removeObj(mike);
-  P.cam = { pos: new V3(0, 1.62, -8), yaw: PI, pitch: -.55 };
-  const hand = box(.16, .04, .2, M(0xd2a07c), 0, 1.05, -8.6);
-  const feather = plane(.06, .2, new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), 0, 3, -8.6);
-  await tween(3200, k => { feather.position.set(Math.sin(k * 9) * .25 * (1 - k), 3 - k * 1.88, -8.6); feather.rotation.set(Math.sin(k * 7) * .8, k * 5, Math.cos(k * 6) * .6); }, k => k);
+  P.cam = { pos: new V3(0, 1.62, -8), yaw: PI, pitch: -.55 }; pLight(0xfff4e0, 6, 3, 0, 2.2, -7.2);
+  const hand = box(.16, .04, .2, M(0xd2a07c), 0, 1.05, -7.4);
+  const feather = plane(.06, .2, new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), 0, 3, -7.4);
+  await tween(3200, k => { feather.position.set(Math.sin(k * 9) * .25 * (1 - k), 3 - k * 1.88, -7.4); feather.rotation.set(Math.sin(k * 7) * .8, k * 5, Math.cos(k * 6) * .6); }, k => k);
   feather.rotation.set(-PI / 2 + .2, 0, .4);
   await talk([['', "Les ninjas disparaissent dans la fumée. Une plume blanche tombe lentement… et se pose au creux de votre main."], ['Mike', "…Merci."]]);
   await wtfEnd('F');
