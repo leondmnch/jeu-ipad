@@ -523,7 +523,7 @@ function walkPath(npc, pts, speed = 1.3) {
   });
 }
 function faceTo(npc, x, z) { npc.rotation.y = Math.atan2(x - npc.position.x, z - npc.position.z); }
-const _v = new V3(), _v2 = new V3();
+const _v = new V3(), _v2 = new V3(), _hit = new V3(), _box = new THREE.Box3(), _ray = new THREE.Ray();
 function headTrack(npc, max = 1.1, speed = 4) {
   return onUpdate(dt => {
     const h = npc.userData.head; h.getWorldPosition(_v);
@@ -542,8 +542,18 @@ function updateFocus() {
   let best = null, bs = 1e9;
   if (P.lock <= 0 && !G.busy && P.mode !== 'bike') {
     camera.getWorldDirection(_v2);
+    _ray.set(camera.position, _v2);
     for (const it of interactables) {
       if (it.off || (it.cond && !it.cond())) continue;
+      // 1) le réticule touche le volume de l'objet
+      if (it.obj && it.obj.parent) {
+        _box.setFromObject(it.obj).expandByScalar(.06);
+        if (!_box.isEmpty() && _ray.intersectBox(_box, _hit)) {
+          const d = _hit.distanceTo(camera.position);
+          if (d <= it.range) { const sc = d * .05; if (sc < bs) { bs = sc; best = it; } continue; }
+        }
+      }
+      // 2) sinon, tolérance angulaire autour d'un point
       if (it.obj) it.obj.getWorldPosition(_v); else _v.copy(it.pos);
       if (it.dy) _v.y += it.dy;
       _v.sub(camera.position); const d = _v.length();
