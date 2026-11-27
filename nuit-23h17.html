@@ -438,7 +438,7 @@ function textCanvas(text, o = {}) {
 function sign(text, wm, o = {}) {
   const t = textCanvas(text, o);
   const c = t.userData.canvas, hm = wm * c.height / c.width;
-  const mat = new THREE.MeshBasicMaterial({ map: t, transparent: !o.bg || o.transparent, fog: o.fog !== false, toneMapped: false, side: o.double ? THREE.DoubleSide : THREE.FrontSide, depthWrite: !!o.bg });
+  const mat = new THREE.MeshBasicMaterial({ map: t, transparent: !o.bg || !!o.transparent, fog: o.fog !== false, toneMapped: false, side: o.double ? THREE.DoubleSide : THREE.FrontSide, depthWrite: !!o.bg });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(wm, hm), mat);
   m.userData.h = hm;
   return m;
@@ -908,7 +908,7 @@ addEventListener('keydown', e => {
   keys[e.code] = true; const k = (e.key || '').toLowerCase(); if (k.length === 1 && 'zqsd'.includes(k)) keys['k_' + k] = true;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
   if (e.repeat || !G.inGame) return;
-  if (e.code === 'Escape') { if (!document.pointerLockElement) { G.paused ? resumeGame() : pauseGame(); } return; }
+  if (e.code === 'Escape') { if (G.paused) { if (!document.pointerLockElement) resumeGame(); } else { pauseGame(); try { document.pointerLockElement && document.exitPointerLock(); } catch (er) { } } return; }
   if (G.paused) return;
   if (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') { actionKey(); return; }
   if (dlg.open && dlg.choices) {
@@ -2540,6 +2540,7 @@ function buildStation() {
   const wm = M(0x7a8478);
   // couloir de départ
   wall(-1.5, -4, -1.5, 3, 3.2, wm); wall(1.5, -4, 1.5, 3, 3.2, wm); wall(-1.5, 3, 1.5, 3, 3.2, wm);
+  pLight(0xd8e8ff, 5, 7, 0, 2.7, -.5); box(1, .05, .3, E(0xeef2ff), 0, 3.12, -.5);
   putSign('HOLDING CELLS ↓', 1.2, 0, 2.6, 2.9, PI, { color: '#fff', bg: '#333', size: 34 });
   // grande salle
   wall(-12, -4, 12, -4, 3.2, wm, [[-.7, .7, 2.3]]); wall(-12, -22, 12, -22, 3.2, wm); wall(12, -22, 12, -4, 3.2, wm);
