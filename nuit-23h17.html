@@ -619,19 +619,28 @@ function openDlg(name, text) {
   dEl.classList.remove('hide');
 }
 function closeDlg() { dlg.open = false; dlg.res = null; dlg.hideT = setTimeout(() => { if (!dlg.open) dEl.classList.add('hide'); }, 90); }
+// File d'attente : une réplique ne remplace jamais une autre (sinon le verrou de mouvement restait bloqué)
+let dlgChain = Promise.resolve(), dlgChainGen = -1;
+function queueDlg(open) {
+  if (dlgChainGen !== G.gen) { dlgChain = Promise.resolve(); dlgChainGen = G.gen; }
+  const g = G.gen;
+  const p = dlgChain.then(() => new Promise(res => { if (g !== G.gen) return; open(res); }));
+  dlgChain = p.then(() => { }, () => { });
+  return p;
+}
 function say(name, text) {
   const g = G.gen;
-  return new Promise(res => {
+  return queueDlg(res => {
     P.lock++; openDlg(name, text);
-    dlg.res = v => { if (g !== G.gen) return; P.lock = Math.max(0, P.lock - 1); closeDlg(); res(v); };
+    dlg.res = v => { if (g !== G.gen) return; dlg.res = null; P.lock = Math.max(0, P.lock - 1); closeDlg(); res(v); };
     A.blip();
   });
 }
 function choose(name, text, opts, o = {}) {
   const g = G.gen;
-  return new Promise(res => {
+  return queueDlg(res => {
     P.lock++; openDlg(name, text); dlg.choices = opts; dlg.sel = 0; dlg.disabled = o.disabled || []; dlg.lockHint = o.hint || '';
-    dlg.res = v => { if (g !== G.gen) return; P.lock = Math.max(0, P.lock - 1); closeDlg(); res(v); };
+    dlg.res = v => { if (g !== G.gen) return; dlg.res = null; P.lock = Math.max(0, P.lock - 1); closeDlg(); res(v); };
   });
 }
 function renderChoices() {
@@ -3545,7 +3554,7 @@ function showEnd(k) {
   const m = /^#ch(\d+)$/.exec(location.hash || '');
   if (m && CH[+m[1]]) { SAVE.ch = +m[1]; }
 }
-window.__dbg = { choose, SAVE: () => SAVE, busAll, blocked, groundAt, pickChoice, finishTyping, isDone, world: () => world, G, P, S: () => S, CH, loadChapter, interactables: () => interactables, colliders: () => colliders, objs: () => objs, dlg, doInteract, dlgAdvance, actionKey, A, camera, setPlayer, updateFocus, showMenu, keys, THREE, scene, renderer };
+window.__dbg = { say, choose, SAVE: () => SAVE, busAll, blocked, groundAt, pickChoice, finishTyping, isDone, world: () => world, G, P, S: () => S, CH, loadChapter, interactables: () => interactables, colliders: () => colliders, objs: () => objs, dlg, doInteract, dlgAdvance, actionKey, A, camera, setPlayer, updateFocus, showMenu, keys, THREE, scene, renderer };
 requestAnimationFrame(frame);
 showMenu();
 </script>
