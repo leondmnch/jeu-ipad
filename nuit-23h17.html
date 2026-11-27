@@ -1027,7 +1027,7 @@ function showMenu() {
   const c = $('bCont');
   if (SAVE.ch > 1) { c.classList.remove('hide'); c.textContent = `Continuer — chapitre ${SAVE.ch}`; } else c.classList.add('hide');
   const e = SAVE.endings;
-  $('endInfo').innerHTML = e.length ? `Fins découvertes : <b>${e.includes('A') ? 'A « Justice »' : 'A ???'}</b> · <b>${e.includes('B') ? 'B « Le piège »' : 'B ???'}</b>` : '';
+  $('endInfo').innerHTML = e.length ? `Fins découvertes (${e.length}/5) : ` + ['A', 'B', 'C', 'D', 'E'].map(k => `<b>${e.includes(k) ? ENDINGS[k][0].replace('Fin ', '') : k + ' ???'}</b>`).join(' · ') : '';
   $('menu').classList.remove('hide');
   fade(0, 1200);
   if (A.ctx) { A.rain(.18); A.mood('noir', .45); }
@@ -2827,7 +2827,10 @@ CH[11] = {
     { const y0 = P.yaw, ty = Math.atan2(-(w2.position.x - P.pos.x), -(w2.position.z - P.pos.z)), dy = Math.atan2(Math.sin(ty - y0), Math.cos(ty - y0)); await tween(700, k => { P.yaw = y0 + dy * k; P.pitch = lerp(P.pitch, 0, k); }); }
     P.lock--;
     await talk([['Det. Dale Whitmore', "Fin de la ligne, Carter. Personne ne viendra. Le 12e district, c'est moi."], ['Det. Dale Whitmore', "Donne-moi la clé USB et le relevé. Tout de suite."], ['', "Dans votre poche, le téléphone. Deux barres de réseau. La vidéo et le relevé scanné sont prêts à partir."]]);
-    const c = await choose('', "Que fais-tu ?", ['Envoyer les preuves au FBI avec ton téléphone', 'Négocier avec Whitmore']);
+    const c = await choose('', "Que fais-tu ?", ['Envoyer les preuves au FBI avec ton téléphone', 'Négocier avec Whitmore', 'Fouiller ton imperméable (il est étrangement lourd)', 'Le défier en duel de danse', 'Lui faire un contrôle fiscal surprise']);
+    if (c === 2) return endingC(w2);
+    if (c === 3) return endingD(w2);
+    if (c === 4) return endingE(w2);
     A.seqStop('heart');
     if (c === 0) {
       await say('Mike', "Désolé, Dale. J'ai déjà quelqu'un à qui écrire.");
@@ -2906,17 +2909,91 @@ function buildEndBus(kind) {
   else { const l = addPerson({ shirt: 0x6a4a6a, coat: 0x4a3a50, pants: 0x3a2a3a, skin: 0xd8b8a0, hair: 0xcfcfcf, bigEyes: true, scarf: 0x7a2a3a, y: .35 }, 1.8, -.85, -PI / 2, B.g); l.sit(.52); headTrack(l, 1.7, 6); }
   B.setSign(kind === 'A' ? 'N22 NIGHT OWL' : 'NEXT STOP: ???');
 }
+/* ================= FINS ABSURDES ================= */
+async function wtfEnd(k, lines) { if (lines) await talk(lines); await fade(1, 1500); await realWait(600); showEnd(k); }
+async function endingC(w) { // le RPG
+  doneObj('edge');
+  await talk([['', "Vous fouillez votre imperméable. Clés. Ticket de bus. Chewing-gum. Un lance-roquettes."], ['Mike', "…Depuis quand j'ai un RPG ?"], ['Det. Dale Whitmore', "Depuis quand t'as un QUOI ?!"]]);
+  const rpg = group(0, 0, 0, camera);
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(.07, .07, 1.1, 10), M(0x3a4a2a)); tube.rotation.x = PI / 2; tube.position.set(.28, -.25, -.55); rpg.add(tube);
+  const war = new THREE.Mesh(new THREE.ConeGeometry(.11, .3, 8), M(0x6a7a4a)); war.rotation.x = -PI / 2; war.position.set(.28, -.25, -1.2); rpg.add(war);
+  box(.05, .2, .05, M(0x222222), .28, -.45, -.4, { parent: rpg });
+  A.click(); P.fov = 60;
+  await say('Mike', "Les chiffres ne mentent pas, Dale. Et là, les chiffres disent : BOUM.");
+  // tir
+  removeObj(war); A.burst(.6, .5, 'lowpass', 900, 1); A.tone(200, .8, 'sawtooth', .2, { to: 60, lp: 1500 }); P.shake = .8;
+  const from = camera.position.clone(), to = w.position.clone().add(new V3(0, 1.2, 0));
+  const rocket = new THREE.Mesh(new THREE.ConeGeometry(.1, .4, 8), M(0x6a7a4a)); world.add(rocket);
+  const trail = glowSprite(0xffa040, 1.2);
+  await tween(450, k => { rocket.position.lerpVectors(from, to, k); rocket.lookAt(to); rocket.rotateX(PI / 2); trail.position.copy(rocket.position); if (Math.random() < .5) { const s = glowSprite(0x888888, .6); s.position.copy(rocket.position); tween(800, q => { s.material.opacity = 1 - q; s.scale.setScalar(.6 + q); }); } }, k => k);
+  removeObj(rocket); removeObj(trail); removeObj(rpg); P.fov = 72;
+  // explosion
+  A.crash(); A.stinger(); A.glass(); flash(500, '#ffb040'); P.shake = 2.5;
+  const boom = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xff7a20, transparent: true }));
+  boom.position.copy(to); world.add(boom); const bl = pLight(0xff8030, 200, 40, to.x, to.y, to.z);
+  tween(1400, k => { boom.scale.setScalar(.5 + k * 6); boom.material.opacity = 1 - k; bl.intensity = 200 * (1 - k); });
+  const w0 = w.position.clone();
+  await tween(3000, k => { w.position.set(w0.x + k * 6, w0.y + k * k * 60, w0.z - k * 30); w.rotation.x += .3; w.rotation.z += .2; }, k => k);
+  w.visible = false;
+  const star = glowSprite(0xffffff, 3); star.position.set(w0.x + 6, 70, w0.z - 30); A.tone(2093, 1.5, 'sine', .15); A.tone(3136, 1.2, 'sine', .08, { delay: .15 });
+  P.pitch = .5;
+  await wtfEnd('C', [['', "*Ding.*"], ['', "Le détective Dale Whitmore est désormais en orbite basse autour de Chicago. La NASA a ouvert une enquête."], ['Mike', "…Bon. Je crois que je vais démissionner."], ['Hélicoptère (haut-parleur)', "MONSIEUR, VOUS AVEZ UN PERMIS POUR ÇA ?"], ['Mike', "C'est un outil de comptabilité."]]);
+}
+async function endingD(w) { // duel de danse
+  doneObj('edge');
+  await talk([['Mike', "Dale Whitmore. Je te défie. En duel. De danse."], ['Det. Dale Whitmore', "…Quoi ?"], ['', "Le juke-box du Rusty Anchor se met à jouer. Ici. Sur le toit. Personne ne sait comment."]]);
+  A.stopAll(); A.rain(.2); A.seq('dance', 128, 64, SONGS[2].fn, .7);
+  S.T.heliMode = 'near'; S.T.heli.position.set(4, 20, -6);
+  const hd = hotdogMan(); world.add(hd); hd.position.set(3, 20, -3); hd.rotation.y = PI;
+  const rope = box(.03, 1, .03, M(0xd0d0d0), 3, 0, -3);
+  await tween(2500, k => { hd.position.y = 20 - k * 20; rope.scale.y = 20 - hd.position.y + .01; rope.position.y = hd.position.y + 1.8 + rope.scale.y / 2; });
+  await say('', "L'homme-hot-dog du bus descend de l'hélicoptère en rappel. Toujours trempé. Toujours silencieux.");
+  const t0 = G.time;
+  const u = onUpdate(() => { const t = G.time - t0; [w, hd].forEach((p, i) => { p.position.y = Math.abs(Math.sin(t * 8 + i)) * .35; p.rotation.y += .12 * (i ? -1 : 1); p.userData.arms.forEach((a, j) => a.rotation.x = -2.6 + Math.sin(t * 8 + j * 3) * .8); }); P.roll = Math.sin(t * 4) * .08; P.pitch = Math.sin(t * 8) * .05; });
+  await talk([['', "Vous dansez. Vous dansez comme un comptable qui n'a plus rien à perdre. Moonwalk. Robot. Le « tableur croisé dynamique »."], ['Det. Dale Whitmore', "NON… NON ! PERSONNE NE DANSE AUSSI MAL ! C'EST… C'EST MAGNIFIQUE !"], ['', "Whitmore tombe à genoux en pleurant et se passe lui-même les menottes."], ['Det. Dale Whitmore', "Arrêtez-moi. Je ne mérite pas de vivre dans un monde où on danse comme ça."], ['L\'homme-hot-dog', "…"], ['L\'homme-hot-dog', "Saucisse."]]);
+  offUpdate(u); A.seqStop('dance');
+  await wtfEnd('D');
+}
+function pigeon() {
+  const g = new THREE.Group(), m = M(0x8a8f9a, { flatShading: true });
+  box(.3, .25, .45, m, 0, .15, 0, { parent: g }); box(.18, .18, .18, M(0x6a7088), 0, .38, .2, { parent: g });
+  box(.06, .04, .1, M(0xe0a040), 0, .4, .33, { parent: g }); box(.03, .03, .01, E(0xff6a00), -.06, .43, .29, { parent: g }); box(.03, .03, .01, E(0xff6a00), .06, .43, .29, { parent: g });
+  const wl = box(.04, .2, .35, m, -.17, .15, 0, { parent: g }), wr = box(.04, .2, .35, m, .17, .15, 0, { parent: g });
+  box(.2, .05, .2, m, 0, .12, -.3, { parent: g });
+  g.userData.wings = [wl, wr]; return g;
+}
+async function endingE(w) { // contrôle fiscal → pigeon
+  doneObj('edge');
+  await talk([['Mike', "Dale Whitmore. Avis de vérification de comptabilité. Exercices 2019 à 2024."], ['Det. Dale Whitmore', "Tu… tu n'as pas le droit."], ['Mike', "Article 4471 du code des impôts. Vous avez déclaré votre bateau comme « chien d'assistance »."], ['Det. Dale Whitmore', "NON ! PAS LES PIÈCES JUSTIFICATIVES !"]]);
+  A.stinger(); flash(700); P.shake = 1;
+  const pos = w.position.clone(); w.visible = false;
+  for (let i = 0; i < 14; i++) { const s = glowSprite(0xffffff, rnd(.5, 1.4)); s.position.copy(pos).add(new V3(rnd(-1, 1), rnd(0, 2), rnd(-1, 1))); tween(1200, k => { s.material.opacity = 1 - k; s.position.y += .01; }); }
+  const pg = pigeon(); pg.position.copy(pos); pg.scale.setScalar(1.6); world.add(pg); faceTo(pg, P.pos.x, P.pos.z);
+  await wait(900);
+  A.tone(400, .25, 'sine', .1, { to: 330 }); A.tone(380, .3, 'sine', .1, { to: 300, delay: .3 });
+  await talk([['Det. Dale Whitmore (pigeon)', "Rou. Rou rou."], ['Mike', "…Ce n'est pas comme ça que marchent les contrôles fiscaux."], ['Det. Dale Whitmore (pigeon)', "ROU."]]);
+  A.burst(1.2, .2, 'bandpass', 600, 1);
+  const p0 = pg.position.clone();
+  await tween(3500, k => { pg.position.set(p0.x + k * 10, p0.y + k * 25, p0.z - k * 40); pg.userData.wings.forEach((wg, i) => wg.rotation.z = Math.sin(G.time * 30) * (i ? 1 : -1)); faceTo(pg, p0.x + 20, p0.z - 80); }, k => k);
+  await wtfEnd('E', [['', "Le pigeon s'envole vers le lac Michigan, emportant avec lui 2,4 millions de dollars et toute la logique de cette histoire."], ['Old Ray (sorti de nulle part)', "Je l'avais toujours dit, gamin. Les flics, c'est tous des pigeons."], ['Mike', "Ray ?! Comment vous êtes monté sur le toit ?"], ['Old Ray (sorti de nulle part)', "Par le bus."]]);
+}
+const ENDINGS = {
+  A: ['Fin A — « Justice »', "Whitmore est tombé. Mike Carter est innocenté. Et Old Ray prend enfin le bus en homme libre."],
+  B: ['Fin B — « Le piège »', "Les preuves ont disparu avec Whitmore. Dans le bus de nuit, une vieille dame n'a jamais cligné des yeux."],
+  C: ['Fin C — « Le comptable explosif »', "Personne ne sait d'où venait le lance-roquettes. Whitmore non plus. Il est maintenant visible à l'œil nu par nuit claire."],
+  D: ['Fin D — « Saucisse ex machina »', "Le 12e district a été démantelé par un duel de danse. L'homme-hot-dog n'a jamais été identifié."],
+  E: ['Fin E — « Rou rou »', "Le détective Dale Whitmore vit désormais sur une corniche de Wacker Drive. Il refuse toujours de payer ses impôts."],
+};
 function showEnd(k) {
   G.gen++; G.inGame = false;
   try { document.pointerLockElement && document.exitPointerLock(); } catch (e) { }
   if (!SAVE.endings.includes(k)) SAVE.endings.push(k); SAVE.ch = 11; save();
   ['dlg', 'obj', 'prompt', 'cross', 'arrow', 'detect', 'sub', 'chapterTag', 'pauseBtn'].forEach(i => $(i).classList.add('hide'));
-  $('endName').textContent = k === 'A' ? 'Fin A — « Justice »' : 'Fin B — « Le piège »';
-  $('endText').textContent = k === 'A' ? "Whitmore est tombé. Mike Carter est innocenté. Et Old Ray prend enfin le bus en homme libre." : "Les preuves ont disparu avec Whitmore. Dans le bus de nuit, une vieille dame n'a jamais cligné des yeux.";
-  const both = SAVE.endings.includes('A') && SAVE.endings.includes('B');
-  $('endHint').textContent = both ? 'Tu as découvert les deux fins. Merci d\'avoir joué.' : 'Rejouer pour découvrir l\'autre fin';
+  $('endName').textContent = ENDINGS[k][0]; $('endText').textContent = ENDINGS[k][1];
+  const n = Object.keys(ENDINGS).filter(e => SAVE.endings.includes(e)).length;
+  $('endHint').textContent = n >= 5 ? 'Tu as découvert les 5 fins. Merci d\'avoir joué.' : `Fins découvertes : ${n}/5 — rejoue pour découvrir les autres`;
   $('end').classList.remove('hide');
-  A.stopAll(); if (A.ctx) A.mood(k === 'A' ? 'warm' : 'noir', .4);
+  A.stopAll(); if (A.ctx) A.mood(k === 'B' ? 'noir' : 'warm', .4);
 }
 
 /* ================= DÉMARRAGE ================= */
